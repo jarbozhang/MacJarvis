@@ -60,19 +60,34 @@ class VoiceService {
         logToFile("[VoiceService] Starting model load...")
 
         Task.detached {
-            let modelDir = NSHomeDirectory() + "/Documents/huggingface/models/argmaxinc/whisperkit-coreml/openai_whisper-base"
-            logToFile("[VoiceService] Init WhisperKit from: \(modelDir)")
+            let localModelDir = NSHomeDirectory() + "/Documents/huggingface/models/argmaxinc/whisperkit-coreml/openai_whisper-base"
+            let hasLocalModel = FileManager.default.fileExists(atPath: localModelDir + "/config.json")
+            logToFile("[VoiceService] Init WhisperKit, localModel=\(hasLocalModel)")
 
             do {
-                let kit = try await WhisperKit(
-                    modelFolder: modelDir,
-                    computeOptions: ModelComputeOptions(audioEncoderCompute: .cpuAndNeuralEngine, textDecoderCompute: .cpuAndNeuralEngine),
-                    verbose: true,
-                    logLevel: .debug,
-                    prewarm: false,
-                    load: true,
-                    download: false
-                )
+                let kit: WhisperKit
+                if hasLocalModel {
+                    kit = try await WhisperKit(
+                        modelFolder: localModelDir,
+                        computeOptions: ModelComputeOptions(audioEncoderCompute: .cpuAndNeuralEngine, textDecoderCompute: .cpuAndNeuralEngine),
+                        verbose: false,
+                        logLevel: .error,
+                        prewarm: false,
+                        load: true,
+                        download: false
+                    )
+                } else {
+                    await MainActor.run { self.modelLoadProgress = "DOWNLOADING..." }
+                    kit = try await WhisperKit(
+                        model: "openai_whisper-base",
+                        computeOptions: ModelComputeOptions(audioEncoderCompute: .cpuAndNeuralEngine, textDecoderCompute: .cpuAndNeuralEngine),
+                        verbose: false,
+                        logLevel: .error,
+                        prewarm: false,
+                        load: true,
+                        download: true
+                    )
+                }
                 logToFile("[VoiceService] WhisperKit loaded OK")
                 await MainActor.run {
                     self.whisperKit = kit
