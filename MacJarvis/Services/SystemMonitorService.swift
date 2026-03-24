@@ -1,21 +1,33 @@
 import Foundation
-import IOKit
 
 @Observable @MainActor
 final class SystemMonitorService {
     var cpuUsage: Double = 0.0
-    var cpuTemperature: Double? = nil
+    /// Memory usage percentage (0–100)
+    var memoryUsage: Double = 0.0
+    /// Disk usage percentage (0–100) of root volume
+    var diskUsage: Double = 0.0
+    /// Total physical memory in GB
+    var totalMemoryGB: Double = 0.0
+    /// Used memory in GB
+    var usedMemoryGB: Double = 0.0
+    /// Total disk in GB
+    var totalDiskGB: Double = 0.0
+    /// Used disk in GB
+    var usedDiskGB: Double = 0.0
 
     private var timer: Timer?
     private var previousCPUInfo: host_cpu_load_info?
 
     func startMonitoring() {
         fetchCPUUsage()
-        fetchCPUTemperature()
+        fetchMemoryUsage()
+        fetchDiskUsage()
         timer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.fetchCPUUsage()
-                self?.fetchCPUTemperature()
+                self?.fetchMemoryUsage()
+                self?.fetchDiskUsage()
             }
         }
     }
@@ -51,129 +63,42 @@ final class SystemMonitorService {
         previousCPUInfo = cpuLoad
     }
 
-    private func fetchCPUTemperature() {
-        Task.detached { [weak self] in
-            let temp = Self.readSMCTemperature()
-            await MainActor.run { [weak self] in
-                self?.cpuTemperature = temp
+    private func fetchMemoryUsage() {
+        let pageSize = Double(vm_kernel_page_size)
+        var vmStats = vm_statistics64()
+        var count = mach_msg_type_number_t(MemoryLayout<vm_statistics64>.stride / MemoryLayout<integer_t>.stride)
+        let host = mach_host_self()
+
+        let result = withUnsafeMutablePointer(to: &vmStats) { ptr in
+            ptr.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { intPtr in
+                host_statistics64(host, HOST_VM_INFO64, intPtr, &count)
             }
         }
+
+        guard result == KERN_SUCCESS else { return }
+
+        let totalBytes = Double(ProcessInfo.processInfo.physicalMemory)
+        let activeBytes = Double(vmStats.active_count) * pageSize
+        let wiredBytes = Double(vmStats.wire_count) * pageSize
+        let compressedBytes = Double(vmStats.compressor_page_count) * pageSize
+        let usedBytes = activeBytes + wiredBytes + compressedBytes
+
+        totalMemoryGB = totalBytes / 1_073_741_824
+        usedMemoryGB = usedBytes / 1_073_741_824
+        memoryUsage = totalBytes > 0 ? (usedBytes / totalBytes) * 100.0 : 0
     }
 
-    private nonisolated static func readSMCTemperature() -> Double? {
-        let serviceName = "AppleSMC"
-        var conn: io_connect_t = 0
-
-        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching(serviceName))
-        guard service != 0 else { return nil }
-        defer { IOObjectRelease(service) }
-
-        let openResult = IOServiceOpen(service, mach_task_self_, 0, &conn)
-        guard openResult == kIOReturnSuccess else { return nil }
-        defer { IOServiceClose(conn) }
-
-        // Step 1: getKeyInfo (data8 = 9) to learn dataSize and dataType
-        var infoInput = SMCKeyData()
-        infoInput.key = fourCharCode("TC0P")
-        infoInput.data8 = 9  // kSMCGetKeyInfo
-
-        var infoOutput = SMCKeyData()
-        var outputSize = MemoryLayout<SMCKeyData>.stride
-
-        var result = IOConnectCallStructMethod(
-            conn, 2,
-            &infoInput, MemoryLayout<SMCKeyData>.stride,
-            &infoOutput, &outputSize
-        )
-        guard result == kIOReturnSuccess else { return nil }
-
-        // Step 2: readKey (data8 = 5) with keyInfo from step 1
-        var readInput = SMCKeyData()
-        readInput.key = fourCharCode("TC0P")
-        readInput.keyInfo.dataSize = infoOutput.keyInfo.dataSize
-        readInput.keyInfo.dataType = infoOutput.keyInfo.dataType
-        readInput.keyInfo.dataAttributes = infoOutput.keyInfo.dataAttributes
-        readInput.data8 = 5  // kSMCReadKey
-
-        var readOutput = SMCKeyData()
-        outputSize = MemoryLayout<SMCKeyData>.stride
-
-        result = IOConnectCallStructMethod(
-            conn, 2,
-            &readInput, MemoryLayout<SMCKeyData>.stride,
-            &readOutput, &outputSize
-        )
-        guard result == kIOReturnSuccess else { return nil }
-
-        // Parse temperature based on data type
-        let dataType = infoOutput.keyInfo.dataType
-        let sp78 = fourCharCode("sp78")  // signed 7.8 fixed point
-        let flt  = fourCharCode("flt ")  // float32
-
-        var temperature: Double
-        if dataType == sp78 {
-            // sp78: signed 7-bit integer + 8-bit fraction
-            let intPart = Double(Int8(bitPattern: readOutput.bytes.0))
-            let fracPart = Double(readOutput.bytes.1) / 256.0
-            temperature = intPart + fracPart
-        } else if dataType == flt {
-            // flt: 32-bit float (big-endian)
-            let b0 = readOutput.bytes.0, b1 = readOutput.bytes.1
-            let b2 = readOutput.bytes.2, b3 = readOutput.bytes.3
-            let rawBits = UInt32(b0) << 24 | UInt32(b1) << 16 | UInt32(b2) << 8 | UInt32(b3)
-            temperature = Double(Float(bitPattern: rawBits))
-        } else {
-            // Fallback: treat as unsigned 8.8 fixed point
-            temperature = Double(readOutput.bytes.0) + Double(readOutput.bytes.1) / 256.0
-        }
-
-        return temperature > 0 && temperature < 150 ? temperature : nil
+    private func fetchDiskUsage() {
+        do {
+            let attrs = try FileManager.default.attributesOfFileSystem(forPath: "/")
+            if let totalSize = attrs[.systemSize] as? Int64,
+               let freeSize = attrs[.systemFreeSize] as? Int64 {
+                let total = Double(totalSize)
+                let used = Double(totalSize - freeSize)
+                totalDiskGB = total / 1_073_741_824
+                usedDiskGB = used / 1_073_741_824
+                diskUsage = total > 0 ? (used / total) * 100.0 : 0
+            }
+        } catch {}
     }
-
-    private nonisolated static func fourCharCode(_ str: String) -> UInt32 {
-        var result: UInt32 = 0
-        for char in str.utf8.prefix(4) {
-            result = (result << 8) | UInt32(char)
-        }
-        return result
-    }
-}
-
-private struct SMCKeyData {
-    var key: UInt32 = 0
-    var vers = SMCVersion()
-    var pLimitData = SMCPLimitData()
-    var keyInfo = SMCKeyInfoData()
-    var padding: UInt16 = 0
-    var result: UInt8 = 0
-    var status: UInt8 = 0
-    var data8: UInt8 = 0
-    var data32: UInt32 = 0
-    var bytes: (UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
-                UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
-                UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
-                UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8) =
-        (0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
-}
-
-private struct SMCVersion {
-    var major: CUnsignedChar = 0
-    var minor: CUnsignedChar = 0
-    var build: CUnsignedChar = 0
-    var reserved: CUnsignedChar = 0
-    var release: CUnsignedShort = 0
-}
-
-private struct SMCPLimitData {
-    var version: UInt16 = 0
-    var length: UInt16 = 0
-    var cpuPLimit: UInt32 = 0
-    var gpuPLimit: UInt32 = 0
-    var memPLimit: UInt32 = 0
-}
-
-private struct SMCKeyInfoData {
-    var dataSize: IOByteCount = 0
-    var dataType: UInt32 = 0
-    var dataAttributes: UInt8 = 0
 }

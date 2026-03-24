@@ -88,22 +88,10 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
 
-            Divider().background(CyberTheme.outlineVariant)
-
-            sectionHeader("DAILY TOKEN BUDGETS")
-
-            budgetRow(label: "CODEX", value: $settings.codexDailyBudget, color: CyberTheme.primary)
-            budgetRow(label: "CLAUDE", value: $settings.claudeDailyBudget, color: CyberTheme.tertiary)
-            budgetRow(label: "GEMINI", value: $settings.geminiDailyBudget, color: CyberTheme.secondary)
-
-            Text("Set to 0 to hide percentage.")
-                .font(CyberTheme.labelFont(size: 7))
-                .foregroundColor(CyberTheme.onSurfaceVariant.opacity(0.6))
-
-            Spacer()
         }
         .padding(16)
-        .frame(width: 320, height: 500)
+        .frame(width: 320)
+        .fixedSize(horizontal: false, vertical: true)
         .background(CyberTheme.surfaceContainer)
         .contentShape(Rectangle())
         .overlay(Rectangle().stroke(CyberTheme.outlineVariant.opacity(0.3), lineWidth: 1))
@@ -114,21 +102,5 @@ struct SettingsView: View {
             .font(CyberTheme.headlineFont(size: 8))
             .tracking(2)
             .foregroundColor(CyberTheme.onSurfaceVariant.opacity(0.6))
-    }
-
-    private func budgetRow(label: String, value: Binding<Int>, color: Color) -> some View {
-        HStack {
-            Rectangle().fill(color).frame(width: 2, height: 20)
-            Text(label)
-                .font(CyberTheme.labelFont(size: 8))
-                .foregroundColor(color)
-                .frame(width: 60, alignment: .leading)
-            TextField("0", value: value, format: .number)
-                .textFieldStyle(.plain)
-                .font(CyberTheme.monoFont(size: 10))
-                .foregroundColor(CyberTheme.onSurface)
-                .padding(6)
-                .background(CyberTheme.surfaceContainerLowest)
-        }
     }
 }

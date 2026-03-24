@@ -73,7 +73,8 @@ struct PixelProgressBar: View {
 
     var body: some View {
         HStack(spacing: 1) {
-            let filledCount = Int(value * Double(segments))
+            let raw = Int(value * Double(segments))
+            let filledCount = value > 0 ? max(raw, 1) : 0
             ForEach(0..<segments, id: \.self) { i in
                 Rectangle()
                     .fill(i < filledCount ? color : CyberTheme.surfaceContainerLowest.opacity(0.2))

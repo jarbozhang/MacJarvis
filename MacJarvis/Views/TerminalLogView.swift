@@ -24,7 +24,7 @@ struct TerminalLogView: View {
                     .frame(width: 6, height: 6)
 
                 Text("Logs_Live :: Extended_Readout_v4")
-                    .font(CyberTheme.monoFont(size: 8))
+                    .font(CyberTheme.monoFont(size: 10))
                     .tracking(2)
                     .textCase(.uppercase)
                     .foregroundColor(CyberTheme.onSurfaceVariant)
@@ -57,14 +57,14 @@ struct TerminalLogView: View {
                 HStack(spacing: 8) {
                     TextField("Enter command...", text: $inputText)
                         .textFieldStyle(.plain)
-                        .font(CyberTheme.monoFont(size: 10))
+                        .font(CyberTheme.monoFont(size: 12))
                         .foregroundColor(CyberTheme.primary)
                         .padding(8)
                         .background(CyberTheme.surfaceContainer)
                         .onSubmit { sendMessage() }
 
                     Button("SEND") { sendMessage() }
-                        .font(CyberTheme.headlineFont(size: 9))
+                        .font(CyberTheme.headlineFont(size: 11))
                         .foregroundColor(CyberTheme.surface)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
@@ -75,7 +75,7 @@ struct TerminalLogView: View {
                         isInputMode = false
                         inputText = ""
                     }
-                    .font(CyberTheme.labelFont(size: 8))
+                    .font(CyberTheme.labelFont(size: 10))
                     .foregroundColor(CyberTheme.onSurfaceVariant)
                     .buttonStyle(.plain)
                 }
@@ -85,7 +85,7 @@ struct TerminalLogView: View {
                     Image(systemName: "plus")
                         .font(.system(size: 14))
                     Text(commandButtonLabel)
-                        .font(CyberTheme.headlineFont(size: 10))
+                        .font(CyberTheme.headlineFont(size: 12))
                         .tracking(3)
                 }
                 .frame(maxWidth: .infinity)
@@ -163,7 +163,7 @@ struct TerminalLogView: View {
             Text(msg.content)
                 .foregroundColor(color.opacity(0.7))
         }
-        .font(CyberTheme.monoFont(size: 9))
+        .font(CyberTheme.monoFont(size: 11))
         .lineLimit(nil)
     }
 

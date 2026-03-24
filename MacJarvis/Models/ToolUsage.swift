@@ -12,6 +12,7 @@ struct ToolUsage: Identifiable {
     var lastUpdated: Date?
     var usagePercent: Int?   // API-reported usage percentage (e.g. Claude 5-hour)
     var planName: String?    // Subscription plan (e.g. "Max", "Pro")
+    var modelName: String?   // Active model (e.g. "gpt-5.4", "gemini-3-flash")
 
     var formattedActivity: String {
         if totalTokens != nil {

@@ -64,13 +64,18 @@ class DisplayManager {
         guard let targetScreen else { return }
         guard let window = NSApplication.shared.windows.first else { return }
 
+        // Hide menu bar and dock on the target screen
+        NSApp.presentationOptions = [.autoHideMenuBar, .autoHideDock]
+
         window.styleMask = [.borderless]
+        // Use the full screen frame (not visibleFrame which excludes dock/menubar)
         window.setFrame(targetScreen.frame, display: true)
         window.level = .normal
     }
 
     func restoreWindow() {
         guard let window = NSApplication.shared.windows.first else { return }
+        NSApp.presentationOptions = []
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.setFrame(CGRect(x: 100, y: 100, width: 800, height: 480), display: true)
     }

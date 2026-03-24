@@ -22,11 +22,11 @@ struct HardwareStatsView: View {
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text("Temp")
+                Text("Mem")
                     .font(CyberTheme.headlineFont(size: 7))
                     .textCase(.uppercase)
                     .foregroundColor(CyberTheme.onSurfaceVariant)
-                Text(monitor.cpuTemperature.map { String(format: "%.0f\u{00B0}C", $0) } ?? "--\u{00B0}C")
+                Text(String(format: "%.1f%%", monitor.memoryUsage))
                     .font(CyberTheme.headlineFont(size: 12))
                     .foregroundColor(CyberTheme.onSurface)
             }

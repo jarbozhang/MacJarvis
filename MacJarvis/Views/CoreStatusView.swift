@@ -2,8 +2,12 @@ import SwiftUI
 
 struct CoreStatusView: View {
     @Environment(OpenClawService.self) private var clawService
+    @Environment(SystemMonitorService.self) private var monitor
     @State private var now = Date()
+    @State private var isBreathing = false
+    @State private var isBlinking = false
     private let uptimeTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    private let blinkTimer = Timer.publish(every: 4, on: .main, in: .common).autoconnect()
 
     private var statusText: String {
         clawService.status == .running ? "OPENCLAW ACTIVE" : "OPENCLAW \(clawService.status.label)"
@@ -19,14 +23,6 @@ struct CoreStatusView: View {
         return String(format: "%03d:%02d:%02d:%02d", days, hours, minutes, seconds)
     }
 
-    private var signalValue: Double {
-        switch clawService.status {
-        case .running: return 0.98
-        case .error: return 0.15
-        case .stopped, .unknown: return 0.0
-        }
-    }
-
     var body: some View {
         VStack(spacing: 8) {
             Spacer()
@@ -37,11 +33,25 @@ struct CoreStatusView: View {
                     .frame(width: 80, height: 80)
                     .blur(radius: 16)
                     .opacity(clawService.status == .running ? 1 : 0.3)
+                    .scaleEffect(isBreathing ? 1.4 : 0.8)
 
-                LobsterShape()
+                LobsterShape(isBlinking: isBlinking)
                     .frame(width: 64, height: 64)
                     .neonGlow()
                     .opacity(clawService.status == .running ? 1 : 0.4)
+                    .scaleEffect(isBreathing ? 1.12 : 0.95)
+            }
+            .onAppear {
+                withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
+                    isBreathing = true
+                }
+            }
+            .onReceive(blinkTimer) { _ in
+                guard clawService.status == .running else { return }
+                isBlinking = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    isBlinking = false
+                }
             }
 
             Text(statusText)
@@ -59,16 +69,16 @@ struct CoreStatusView: View {
 
             VStack(spacing: 4) {
                 HStack {
-                    Text("Signal")
+                    Text("Disk")
                         .font(CyberTheme.headlineFont(size: 7))
                         .textCase(.uppercase)
                         .foregroundColor(CyberTheme.tertiary)
                     Spacer()
-                    Text(signalValue > 0 ? "\(Int(signalValue * 100))%" : "--")
+                    Text(String(format: "%.0f/%.0fG", monitor.usedDiskGB, monitor.totalDiskGB))
                         .font(CyberTheme.headlineFont(size: 7))
                         .foregroundColor(CyberTheme.tertiary)
                 }
-                PixelProgressBar(value: signalValue, color: CyberTheme.tertiary)
+                PixelProgressBar(value: monitor.diskUsage / 100.0, color: CyberTheme.tertiary)
                     .frame(height: 4)
             }
             .padding(.horizontal, 8)

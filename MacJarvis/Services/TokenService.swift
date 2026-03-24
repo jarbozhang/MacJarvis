@@ -1,5 +1,5 @@
 import Foundation
-import SQLite3
+import Security
 
 @Observable
 @MainActor
@@ -11,15 +11,6 @@ class TokenService {
     ]
 
     private var refreshTimer: Timer?
-    private let codexDbPath: String
-    private let claudeUsageCachePath: String
-    private let geminiBasePath: String
-
-    init(codexDbPath: String? = nil, claudeUsageCachePath: String? = nil, geminiBasePath: String? = nil) {
-        self.codexDbPath = codexDbPath ?? (NSHomeDirectory() + "/.codex/state_5.sqlite")
-        self.claudeUsageCachePath = claudeUsageCachePath ?? (NSHomeDirectory() + "/.claude/plugins/claude-hud/.usage-cache.json")
-        self.geminiBasePath = geminiBasePath ?? (NSHomeDirectory() + "/.gemini/tmp")
-    }
 
     func startAutoRefresh() {
         fetchAll()
@@ -36,71 +27,100 @@ class TokenService {
     }
 
     func fetchAll() {
-        let codexPath = codexDbPath
-        let claudePath = claudeUsageCachePath
-        let geminiPath = geminiBasePath
+        let codexAuthPath = NSHomeDirectory() + "/.codex/auth.json"
+        let codexConfigPath = NSHomeDirectory() + "/.codex/config.toml"
+        let geminiCredsPath = NSHomeDirectory() + "/.gemini/oauth_creds.json"
         Task.detached {
-            let codexUsage = Self.queryCodexDatabase(at: codexPath)
-            let claudeUsage = Self.queryClaudeUsageCache(path: claudePath)
-            let geminiUsage = Self.queryGeminiSessions(basePath: geminiPath)
+            let codexUsage = await Self.queryCodexUsageAPI(authPath: codexAuthPath)
+            let codexModel = Self.readCodexModel(configPath: codexConfigPath)
+            let claudeHudPath = NSHomeDirectory() + "/.claude/plugins/claude-hud/.usage-cache.json"
+            let claudeUsage: (fiveHourPercent: Int, subscriptionType: String?)?
+            if let cached = Self.queryClaudeUsageCache(path: claudeHudPath) {
+                claudeUsage = cached
+            } else {
+                claudeUsage = await Self.queryClaudeUsageAPI()
+            }
+            let geminiUsage = await Self.queryGeminiUsageAPI(credsPath: geminiCredsPath)
             await MainActor.run { [weak self] in
                 guard let self else { return }
                 if let usage = codexUsage, let idx = self.tools.firstIndex(where: { $0.id == "codex" }) {
-                    self.tools[idx].totalTokens = usage.totalTokens
-                    self.tools[idx].sessionCount = usage.sessionCount
+                    self.tools[idx].usagePercent = usage.usedPercent
+                    self.tools[idx].planName = usage.planType
+                    self.tools[idx].modelName = codexModel
                     self.tools[idx].lastUpdated = Date()
                 }
                 if let usage = claudeUsage, let idx = self.tools.firstIndex(where: { $0.id == "claude" }) {
                     self.tools[idx].usagePercent = usage.fiveHourPercent
-                    self.tools[idx].planName = usage.planName
+                    self.tools[idx].planName = usage.subscriptionType
                     self.tools[idx].lastUpdated = Date()
                 }
                 if let usage = geminiUsage, let idx = self.tools.firstIndex(where: { $0.id == "gemini" }) {
-                    self.tools[idx].sessionCount = usage.sessionCount
+                    self.tools[idx].usagePercent = usage.usedPercent
+                    self.tools[idx].planName = usage.tierName
+                    self.tools[idx].modelName = usage.modelName
                     self.tools[idx].lastUpdated = Date()
                 }
             }
         }
     }
 
-    nonisolated static func queryCodexDatabase(at path: String) -> (totalTokens: Int, sessionCount: Int)? {
-        var db: OpaquePointer?
-        // Use immutable URI to avoid WAL file access issues when Codex is running
-        let uri = "file:\(path)?immutable=1"
-        guard sqlite3_open_v2(uri, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI, nil) == SQLITE_OK else {
-            return nil
+    nonisolated static func readCodexModel(configPath: String) -> String? {
+        guard let content = try? String(contentsOfFile: configPath, encoding: .utf8) else { return nil }
+        // Parse `model = "gpt-5.4"` from TOML
+        for line in content.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("model") && trimmed.contains("=") {
+                let parts = trimmed.split(separator: "=", maxSplits: 1)
+                guard parts.count == 2 else { continue }
+                let key = parts[0].trimmingCharacters(in: .whitespaces)
+                guard key == "model" else { continue }
+                let value = parts[1].trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+                return value
+            }
         }
-        defer { sqlite3_close(db) }
-
-        // Calculate start-of-day in local timezone as Unix timestamp
-        let calendar = Calendar.current
-        let startOfDay = calendar.startOfDay(for: Date())
-        let startOfDayUnix = Int(startOfDay.timeIntervalSince1970)
-
-        let sql = """
-        SELECT COALESCE(SUM(tokens_used), 0), COUNT(*)
-        FROM threads
-        WHERE created_at >= \(startOfDayUnix);
-        """
-
-        var stmt: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
-            return nil
-        }
-        defer { sqlite3_finalize(stmt) }
-
-        guard sqlite3_step(stmt) == SQLITE_ROW else {
-            return nil
-        }
-
-        let totalTokens = Int(sqlite3_column_int64(stmt, 0))
-        let sessionCount = Int(sqlite3_column_int64(stmt, 1))
-        return (totalTokens, sessionCount)
+        return nil
     }
 
-    nonisolated static func queryClaudeUsageCache(path: String? = nil) -> (fiveHourPercent: Int, planName: String?)? {
-        let filePath = path ?? (NSHomeDirectory() + "/.claude/plugins/claude-hud/.usage-cache.json")
-        guard let data = try? Data(contentsOf: URL(fileURLWithPath: filePath)),
+    nonisolated static func queryCodexUsageAPI(authPath: String) async -> (usedPercent: Int, planType: String?)? {
+        // Read OAuth credentials from ~/.codex/auth.json
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: authPath)),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let tokens = json["tokens"] as? [String: Any],
+              let accessToken = tokens["access_token"] as? String else {
+            return nil
+        }
+        let accountId = tokens["account_id"] as? String
+
+        // Call ChatGPT backend API for Codex usage
+        guard let url = URL(string: "https://chatgpt.com/backend-api/wham/usage") else { return nil }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        if let accountId {
+            request.setValue(accountId, forHTTPHeaderField: "ChatGPT-Account-Id")
+        }
+        request.timeoutInterval = 10
+
+        guard let (responseData, response) = try? await URLSession.shared.data(for: request),
+              let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200,
+              let result = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] else {
+            return nil
+        }
+
+        // Parse rate_limit.primary_window.used_percent (5-hour window)
+        var usedPercent = 0
+        if let rateLimit = result["rate_limit"] as? [String: Any],
+           let primaryWindow = rateLimit["primary_window"] as? [String: Any],
+           let pct = primaryWindow["used_percent"] as? Double {
+            usedPercent = Int(pct)
+        }
+
+        let planType = result["plan_type"] as? String
+        return (usedPercent, planType)
+    }
+
+    nonisolated static func queryClaudeUsageCache(path: String) -> (fiveHourPercent: Int, subscriptionType: String?)? {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return nil
         }
@@ -119,30 +139,110 @@ class TokenService {
         return (fiveHour, planName)
     }
 
-    nonisolated static func queryGeminiSessions(basePath: String? = nil) -> (sessionCount: Int, messageCount: Int)? {
-        let base = basePath ?? (NSHomeDirectory() + "/.gemini/tmp")
-        let fm = FileManager.default
+    nonisolated static func queryClaudeUsageAPI() async -> (fiveHourPercent: Int, subscriptionType: String?)? {
+        // Read OAuth token from macOS Keychain
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "Claude Code-credentials",
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
 
-        guard let projectDirs = try? fm.contentsOfDirectory(atPath: base) else {
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess,
+              let data = result as? Data,
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let oauth = json["claudeAiOauth"] as? [String: Any],
+              let accessToken = oauth["accessToken"] as? String else {
             return nil
         }
 
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        let todayPrefix = "session-" + formatter.string(from: Date())
+        let subscriptionType = oauth["subscriptionType"] as? String
 
-        var totalSessions = 0
+        // Call Claude usage API
+        guard let url = URL(string: "https://api.anthropic.com/api/oauth/usage") else { return nil }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
+        request.timeoutInterval = 10
 
-        for projectDir in projectDirs {
-            let chatsPath = (base as NSString).appendingPathComponent("\(projectDir)/chats")
-            guard let files = try? fm.contentsOfDirectory(atPath: chatsPath) else { continue }
+        guard let (responseData, response) = try? await URLSession.shared.data(for: request),
+              let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200,
+              let usageJson = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] else {
+            return nil
+        }
 
-            for file in files where file.hasPrefix(todayPrefix) && file.hasSuffix(".json") {
-                totalSessions += 1
+        // Parse five_hour.utilization
+        var fiveHourPercent = 0
+        if let fiveHour = usageJson["five_hour"] as? [String: Any],
+           let utilization = fiveHour["utilization"] as? Double {
+            fiveHourPercent = Int(utilization)
+        }
+
+        return (fiveHourPercent, subscriptionType)
+    }
+
+    nonisolated static func queryGeminiUsageAPI(credsPath: String) async -> (usedPercent: Int, tierName: String?, modelName: String?)? {
+        // Read OAuth credentials from ~/.gemini/oauth_creds.json
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: credsPath)),
+              let creds = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let accessToken = creds["access_token"] as? String else {
+            return nil
+        }
+
+        // Step 1: Get project ID via loadCodeAssist
+        guard let loadUrl = URL(string: "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist") else { return nil }
+        var loadReq = URLRequest(url: loadUrl)
+        loadReq.httpMethod = "POST"
+        loadReq.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        loadReq.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        loadReq.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "metadata": ["ideType": "GEMINI_CLI", "pluginType": "GEMINI"]
+        ])
+        loadReq.timeoutInterval = 10
+
+        guard let (loadData, loadResp) = try? await URLSession.shared.data(for: loadReq),
+              let loadHttp = loadResp as? HTTPURLResponse, loadHttp.statusCode == 200,
+              let loadJson = try? JSONSerialization.jsonObject(with: loadData) as? [String: Any],
+              let projectId = loadJson["cloudaicompanionProject"] as? String else {
+            return nil
+        }
+
+        let tierName = (loadJson["currentTier"] as? [String: Any])?["id"] as? String
+
+        // Step 2: Get quota via retrieveUserQuota
+        guard let quotaUrl = URL(string: "https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota") else { return nil }
+        var quotaReq = URLRequest(url: quotaUrl)
+        quotaReq.httpMethod = "POST"
+        quotaReq.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        quotaReq.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        quotaReq.httpBody = try? JSONSerialization.data(withJSONObject: ["project": projectId])
+        quotaReq.timeoutInterval = 10
+
+        guard let (quotaData, quotaResp) = try? await URLSession.shared.data(for: quotaReq),
+              let quotaHttp = quotaResp as? HTTPURLResponse, quotaHttp.statusCode == 200,
+              let quotaJson = try? JSONSerialization.jsonObject(with: quotaData) as? [String: Any],
+              let buckets = quotaJson["buckets"] as? [[String: Any]] else {
+            return nil
+        }
+
+        // Find the highest usage among gemini-3 models
+        var maxUsed: Double = 0
+        var maxModelId: String?
+        for bucket in buckets {
+            guard let modelId = bucket["modelId"] as? String,
+                  modelId.hasPrefix("gemini-3"),
+                  let remaining = bucket["remainingFraction"] as? Double else { continue }
+            let used = 1.0 - remaining
+            if used > maxUsed {
+                maxUsed = used
+                maxModelId = modelId
             }
         }
 
-        guard totalSessions > 0 else { return nil }
-        return (totalSessions, 0)
+        return (Int(maxUsed * 100), tierName, maxModelId)
     }
 }

@@ -4,6 +4,7 @@ struct LobsterShape: View {
     var bodyColor: Color = CyberTheme.primary
     var antennaColor: Color = Color(hex: 0xFF6B6B)
     var eyeHighlightColor: Color = Color(hex: 0x00E5CC)
+    var isBlinking: Bool = false
 
     var body: some View {
         Canvas { context, size in
@@ -84,15 +85,32 @@ struct LobsterShape: View {
                 style: StrokeStyle(lineWidth: 2 * min(scaleX, scaleY), lineCap: .round))
 
             // Eyes
-            let leftEye = CGRect(x: (45 - 6) * scaleX, y: (35 - 6) * scaleY, width: 12 * scaleX, height: 12 * scaleY)
-            let rightEye = CGRect(x: (75 - 6) * scaleX, y: (35 - 6) * scaleY, width: 12 * scaleX, height: 12 * scaleY)
-            context.fill(Path(ellipseIn: leftEye), with: .color(Color(hex: 0x050810)))
-            context.fill(Path(ellipseIn: rightEye), with: .color(Color(hex: 0x050810)))
+            let eyeColor = Color(hex: 0x050810)
+            if isBlinking {
+                // Blink: draw closed eyes as horizontal lines
+                var leftEyeLine = Path()
+                leftEyeLine.move(to: CGPoint(x: (45 - 6) * scaleX, y: 35 * scaleY))
+                leftEyeLine.addLine(to: CGPoint(x: (45 + 6) * scaleX, y: 35 * scaleY))
+                context.stroke(leftEyeLine, with: .color(eyeColor),
+                    style: StrokeStyle(lineWidth: 2 * min(scaleX, scaleY), lineCap: .round))
 
-            let leftHL = CGRect(x: (46 - 2) * scaleX, y: (34 - 2) * scaleY, width: 4 * scaleX, height: 4 * scaleY)
-            let rightHL = CGRect(x: (76 - 2) * scaleX, y: (34 - 2) * scaleY, width: 4 * scaleX, height: 4 * scaleY)
-            context.fill(Path(ellipseIn: leftHL), with: .color(eyeHighlightColor))
-            context.fill(Path(ellipseIn: rightHL), with: .color(eyeHighlightColor))
+                var rightEyeLine = Path()
+                rightEyeLine.move(to: CGPoint(x: (75 - 6) * scaleX, y: 35 * scaleY))
+                rightEyeLine.addLine(to: CGPoint(x: (75 + 6) * scaleX, y: 35 * scaleY))
+                context.stroke(rightEyeLine, with: .color(eyeColor),
+                    style: StrokeStyle(lineWidth: 2 * min(scaleX, scaleY), lineCap: .round))
+            } else {
+                // Open eyes
+                let leftEye = CGRect(x: (45 - 6) * scaleX, y: (35 - 6) * scaleY, width: 12 * scaleX, height: 12 * scaleY)
+                let rightEye = CGRect(x: (75 - 6) * scaleX, y: (35 - 6) * scaleY, width: 12 * scaleX, height: 12 * scaleY)
+                context.fill(Path(ellipseIn: leftEye), with: .color(eyeColor))
+                context.fill(Path(ellipseIn: rightEye), with: .color(eyeColor))
+
+                let leftHL = CGRect(x: (46 - 2) * scaleX, y: (34 - 2) * scaleY, width: 4 * scaleX, height: 4 * scaleY)
+                let rightHL = CGRect(x: (76 - 2) * scaleX, y: (34 - 2) * scaleY, width: 4 * scaleX, height: 4 * scaleY)
+                context.fill(Path(ellipseIn: leftHL), with: .color(eyeHighlightColor))
+                context.fill(Path(ellipseIn: rightHL), with: .color(eyeHighlightColor))
+            }
         }
     }
 }
