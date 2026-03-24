@@ -32,7 +32,7 @@ class OpenClawService {
     // Stable user ID for session persistence across requests
     private let userId = "macjarvis-\(ProcessInfo.processInfo.hostName)"
 
-    /// Test connectivity and set status
+    /// Test connectivity via /health endpoint (no token cost)
     func connect(host: String, port: Int, token: String = "", agent: String = "main") async {
         baseURL = "http://\(host):\(port)"
         authToken = token
@@ -40,39 +40,18 @@ class OpenClawService {
 
         clawLog("Connecting to \(self.baseURL) token=\(token.isEmpty ? "none" : "set") agent=\(agent)")
 
-        // Ping the endpoint to check if gateway is alive
-        let url = URL(string: "\(baseURL)/v1/chat/completions")!
-        var request = URLRequest(url: url, timeoutInterval: 15)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        if !authToken.isEmpty {
-            request.setValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
-        }
-        request.setValue(agentId, forHTTPHeaderField: "x-openclaw-agent-id")
-
-        let body: [String: Any] = [
-            "model": "openclaw",
-            "messages": [["role": "user", "content": "ping"]],
-            "stream": false,
-            "user": userId
-        ]
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        // Use /health endpoint — no auth needed, no token consumption
+        let url = URL(string: "\(baseURL)/health")!
+        var request = URLRequest(url: url, timeoutInterval: 10)
+        request.httpMethod = "GET"
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (_, response) = try await URLSession.shared.data(for: request)
             if let httpResponse = response as? HTTPURLResponse,
                (200...299).contains(httpResponse.statusCode) {
                 status = .running
                 connectedAt = Date.now
-                clawLog("Connected OK")
-
-                // Parse ping response and show it
-                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let choices = json["choices"] as? [[String: Any]],
-                   let message = choices.first?["message"] as? [String: Any],
-                   let content = message["content"] as? String {
-                    messages.append(ChatMessage(role: .assistant, content: content))
-                }
+                clawLog("Connected OK via /health")
             } else {
                 let code = (response as? HTTPURLResponse)?.statusCode ?? -1
                 clawLog("Connect failed: HTTP \(code)")

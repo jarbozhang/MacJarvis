@@ -27,7 +27,7 @@ struct HeaderView: View {
             Spacer()
 
             HStack(spacing: 16) {
-                Text("Neo-Tokyo-01")
+                Text("\(NSUserName())-JARVIS")
                     .font(CyberTheme.labelFont(size: 8))
                     .tracking(2)
                     .textCase(.uppercase)
