@@ -15,7 +15,7 @@ MacJarvis 是一个 macOS 原生 SwiftUI 应用，用于：
 - **状态管理**: `@Observable` macro + SwiftUI Environment
 - **语音识别**: WhisperKit (SPM, CoreML 本地推理)
 - **语音合成**: AVSpeechSynthesizer (zh-CN)
-- **OpenClaw 通信**: URLSessionWebSocketTask
+- **OpenClaw 通信**: URLSession HTTP REST + SSE streaming (`/v1/chat/completions`)
 - **数据存储**: SQLite3 C API (Codex), JSON (Claude/Gemini)
 - **项目管理**: XcodeGen (`project.yml`)
 
@@ -38,7 +38,7 @@ MacJarvis/
 │   ├── Services/
 │   │   ├── DisplayManager.swift     # 800×480 外接屏检测 + 全屏切换
 │   │   ├── TokenService.swift       # Codex/Claude/Gemini token 采集
-│   │   ├── OpenClawService.swift    # WebSocket 连接、心跳、自动重连
+│   │   ├── OpenClawService.swift    # HTTP REST + SSE streaming, 自动连接
 │   │   ├── SettingsService.swift    # UserDefaults 持久化 (OpenClaw host/port)
 │   │   └── VoiceService.swift       # WhisperKit STT + AVSpeech TTS + 音频录制
 │   ├── Models/
@@ -94,9 +94,12 @@ xcodebuild -project MacJarvis.xcodeproj -scheme MacJarvis -configuration Debug t
 
 ## 关键设计决策
 
-- **OpenClaw 不自动连接**: 启动时不连接 WebSocket，用户通过 Settings 面板手动 RECONNECT
+- **OpenClaw 自动连接**: 启动时使用保存的 Settings 自动连接，Settings 面板可手动重连
+- **OpenClaw 需要 token 认证**: gateway 配置了 `auth.mode=token`，MacJarvis Settings 中需填入 token
+- **OpenClaw chatCompletions 端点**: 需在 `~/.openclaw/openclaw.json` 中启用 `gateway.http.endpoints.chatCompletions.enabled: true`
 - **SQLite immutable URI**: Codex 数据库使用 `?immutable=1` 避免 WAL 文件访问冲突
-- **Whisper 后台推理**: `Task.detached` 运行推理避免阻塞 MainActor
+- **Whisper 后台推理**: `Task.detached` 运行推理避免阻塞 MainActor，`isModelLoading` 锁防止重入
+- **AVAudioEngine 安全停止**: 必须先 `stop()` 再 `removeTap()`，避免 audio IO 线程 crash
 - **TTS 自动播报**: assistant 消息自动 TTS，PTT 按下可打断
 - **OpenClaw 支持本地和远程**: 默认 127.0.0.1:18789，可配置为 100.67.1.75 (Tailscale)
 
@@ -105,6 +108,8 @@ xcodebuild -project MacJarvis.xcodeproj -scheme MacJarvis -configuration Debug t
 - **SourceKit 误报**: 构建期间 SourceKit 经常报 "Cannot find X in scope" 假阳性，只信任 xcodebuild 输出
 - **xcodeproj 在 .gitignore 中**: `MacJarvis.xcodeproj` 由 XcodeGen 生成，不纳入版本控制
 - **测试 CodeSign 问题**: 命令行 `xcodebuild test` 可能遇到 CodeSign 失败，使用两步构建解决
+- **Settings 面板手势冲突**: DashboardView 中遮罩层使用 Button 而非 onTapGesture，避免与 SettingsView 内部按钮产生手势竞争
+- **App Sandbox 已关闭**: entitlements 中 `com.apple.security.app-sandbox` 为 false，允许 localhost HTTP 请求和文件系统访问
 
 ## Milestone 状态
 
