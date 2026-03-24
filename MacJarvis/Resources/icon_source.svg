@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <clipPath id="squircle">
+      <path d="M0,512 C0,89.6 89.6,0 512,0 C934.4,0 1024,89.6 1024,512 C1024,934.4 934.4,1024 512,1024 C89.6,1024 0,934.4 0,512"/>
+    </clipPath>
+    <linearGradient id="bevel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="white" stop-opacity="0.1"/>
+      <stop offset="50%" stop-color="white" stop-opacity="0"/>
+      <stop offset="100%" stop-color="black" stop-opacity="0.4"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="20" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="10" stdDeviation="15" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Clipped container -->
+  <g clip-path="url(#squircle)">
+    <!-- Dark background -->
+    <rect width="1024" height="1024" fill="#131318"/>
+
+    <!-- Carbon fiber pattern -->
+    <pattern id="carbon" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+      <rect width="4" height="4" fill="rgba(0,225,171,0.08)"/>
+    </pattern>
+    <rect width="1024" height="1024" fill="url(#carbon)"/>
+
+    <!-- Radial ambient glow -->
+    <radialGradient id="ambient" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="#00e1ab" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#131318" stop-opacity="0"/>
+    </radialGradient>
+    <rect width="1024" height="1024" fill="url(#ambient)"/>
+
+    <!-- Bevel overlay -->
+    <rect width="1024" height="1024" fill="url(#bevel)"/>
+
+    <!-- Inner glow ring -->
+    <path d="M80,512 C80,134 134,80 512,80 C890,80 944,134 944,512 C944,890 890,944 512,944 C134,944 80,890 80,512" fill="none" stroke="#00FFC2" stroke-opacity="0.1" stroke-width="2"/>
+
+    <!-- Lobster SVG scaled to center (120x120 -> ~500x500, centered) -->
+    <g transform="translate(182, 172) scale(5.5)" filter="url(#shadow)">
+      <!-- Body -->
+      <path d="M60 10 C30 10 15 35 15 55 C15 75 30 95 45 100 L45 110 L55 110 L55 100 C55 100 60 102 65 100 L65 110 L75 110 L75 100 C90 95 105 75 105 55 C105 35 90 10 60 10Z" fill="#00FFC2"/>
+      <!-- Left claw -->
+      <path d="M20 45 C5 40 0 50 5 60 C10 70 20 65 25 55 C28 48 25 45 20 45Z" fill="#00FFC2"/>
+      <!-- Right claw -->
+      <path d="M100 45 C115 40 120 50 115 60 C110 70 100 65 95 55 C92 48 95 45 100 45Z" fill="#00FFC2"/>
+      <!-- Left antenna -->
+      <path d="M45 15 Q35 5 30 8" stroke="#FF7F50" stroke-linecap="round" stroke-width="2.5"/>
+      <!-- Right antenna -->
+      <path d="M75 15 Q85 5 90 8" stroke="#FF7F50" stroke-linecap="round" stroke-width="2.5"/>
+      <!-- Eyes -->
+      <circle cx="45" cy="35" r="6" fill="#050810"/>
+      <circle cx="75" cy="35" r="6" fill="#050810"/>
+      <!-- Eye highlights -->
+      <circle cx="46" cy="34" r="2" fill="#00e5cc"/>
+      <circle cx="76" cy="34" r="2" fill="#00e5cc"/>
+    </g>
+  </g>
+</svg>
