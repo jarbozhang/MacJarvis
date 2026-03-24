@@ -1,0 +1,19 @@
+# Xcode
+MacJarvis.xcodeproj/
+xcuserdata/
+*.xcworkspace/
+DerivedData/
+build/
+
+# macOS
+.DS_Store
+*.swp
+*.lock
+default.profraw
+
+# Dependencies
+.build/
+Packages/
+
+# Debug logs
+/tmp/macjarvis-*.log

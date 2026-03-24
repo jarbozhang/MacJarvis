@@ -1,0 +1,59 @@
+name: MacJarvis
+options:
+  bundleIdPrefix: com.jarvis
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    CODE_SIGN_IDENTITY: "-"
+    PRODUCT_BUNDLE_IDENTIFIER: com.jarvis.MacJarvis
+packages:
+  WhisperKit:
+    url: https://github.com/argmaxinc/WhisperKit
+    from: "0.9.0"
+targets:
+  MacJarvis:
+    type: application
+    platform: macOS
+    sources:
+      - path: MacJarvis
+    resources:
+      - path: MacJarvis/Resources
+    settings:
+      base:
+        INFOPLIST_FILE: MacJarvis/Info.plist
+        CODE_SIGN_ENTITLEMENTS: MacJarvis/MacJarvis.entitlements
+        PRODUCT_NAME: MacJarvis
+    dependencies:
+      - sdk: libsqlite3.tbd
+      - package: WhisperKit
+    entitlements:
+      path: MacJarvis/MacJarvis.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
+  MacJarvisTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: MacJarvisTests
+    dependencies:
+      - target: MacJarvis
+    settings:
+      base:
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/MacJarvis.app/Contents/MacOS/MacJarvis"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        GENERATE_INFOPLIST_FILE: "YES"
+  MacJarvisUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: MacJarvisUITests
+    dependencies:
+      - target: MacJarvis
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: "YES"
+        TEST_TARGET_NAME: MacJarvis
