@@ -28,7 +28,7 @@ struct DashboardView: View {
 
                 BottomNavBar()
             }
-            .background(theme.surface)
+            .background { StarfieldBackground() }
             .pixelGrid()
             .crtEffect()
 

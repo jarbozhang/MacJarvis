@@ -28,20 +28,11 @@ struct CoreStatusView: View {
         VStack(spacing: 8) {
             Spacer()
 
-            ZStack {
-                Circle()
-                    .fill(theme.primary.opacity(0.2))
-                    .frame(width: 80, height: 80)
-                    .blur(radius: 16)
-                    .opacity(clawService.status == .running ? 1 : 0.3)
-                    .scaleEffect(isBreathing ? 1.4 : 0.8)
-
-                LobsterShape(isBlinking: isBlinking)
-                    .frame(width: 64, height: 64)
-                    .neonGlow(color: theme.primary)
-                    .opacity(clawService.status == .running ? 1 : 0.4)
-                    .scaleEffect(isBreathing ? 1.12 : 0.95)
-            }
+            LobsterShape(isBlinking: isBlinking)
+                .frame(width: 64, height: 64)
+                .neonGlow(color: theme.primary)
+                .opacity(clawService.status == .running ? 1 : 0.4)
+                .scaleEffect(isBreathing ? 1.12 : 0.95)
             .onAppear {
                 withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
                     isBreathing = true
