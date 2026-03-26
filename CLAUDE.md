@@ -25,6 +25,7 @@ MacJarvis 是一个 macOS 原生 SwiftUI 应用，用于：
 - 耗时操作通过 `Task.detached` 或 `nonisolated static` 方法在后台执行
 - Service 之间不直接持有引用，跨 Service 流程由 View 层协调
 - 数据流单向：Service 持有状态 → View 订阅渲染
+- **主题系统**: `AppTheme` enum 通过 `@Environment(\.theme)` 注入所有 View，颜色通过 `theme.xxx` 访问，字体通过 `AppTheme.xxxFont()` 静态方法访问
 
 ## 目录结构
 
@@ -39,7 +40,7 @@ MacJarvis/
 │   │   ├── DisplayManager.swift     # 800×480 外接屏检测 + 全屏切换
 │   │   ├── TokenService.swift       # Codex/Claude/Gemini token 采集
 │   │   ├── OpenClawService.swift    # HTTP REST + SSE streaming, 自动连接
-│   │   ├── SettingsService.swift    # UserDefaults 持久化 (OpenClaw host/port)
+│   │   ├── SettingsService.swift    # UserDefaults 持久化 (OpenClaw host/port/theme)
 │   │   └── VoiceService.swift       # WhisperKit STT + AVSpeech TTS + 音频录制
 │   ├── Models/
 │   │   ├── ToolUsage.swift          # Token 使用量数据模型
@@ -54,7 +55,8 @@ MacJarvis/
 │   │   ├── PTTButton.swift          # Push-to-Talk 按钮 + 波形动画
 │   │   └── SettingsView.swift       # 设置面板 (OpenClaw host/port)
 │   ├── Theme/
-│   │   ├── CyberTheme.swift         # 颜色/字体/修饰器 (neonGlow, pixelCard)
+│   │   ├── AppTheme.swift           # 多主题枚举 (Redact红/Matrix绿) + 颜色/字体/Environment
+│   │   ├── CyberTheme.swift         # View 修饰器 (NeonGlow, PixelProgressBar)
 │   │   └── CRTEffect.swift          # CRT 扫描线效果
 │   └── Resources/
 │       ├── Assets.xcassets
@@ -65,9 +67,8 @@ MacJarvis/
     ├── SettingsServiceTests.swift   # 设置持久化 (5 tests)
     ├── OpenClawServiceTests.swift   # WebSocket 连接逻辑 (5 tests)
     ├── VoiceServiceTests.swift      # 语音服务状态 (3 tests)
-    ├── TokenServiceTests.swift      # Codex SQLite 查询 (unknown)
-    ├── TokenServiceClaudeTests.swift # Claude JSON 解析 (4 tests)
-    └── TokenServiceGeminiTests.swift # Gemini 日志扫描 (3 tests)
+    ├── TokenServiceTests.swift      # ToolUsage 模型测试 (7 tests)
+    └── AppThemeTests.swift          # 多主题颜色/持久化/环境 (10 tests)
 ```
 
 ## 构建和测试
@@ -119,3 +120,4 @@ xcodebuild -project MacJarvis.xcodeproj -scheme MacJarvis -configuration Debug t
 - [x] M4: 语音输入 + 对话
 - [x] M5: TTS + 打磨 (自动播报, 波形动画, CRT 效果)
 - [x] M6: 扩展预留 (Claude/Gemini token 采集)
+- [x] M7: 多主题支持 (Redact 红 + Matrix 绿)
