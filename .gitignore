@@ -17,3 +17,4 @@ Packages/
 
 # Debug logs
 /tmp/macjarvis-*.log
+.gstack/
