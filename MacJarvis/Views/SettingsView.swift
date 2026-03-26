@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(SettingsService.self) private var settings
     @Environment(OpenClawService.self) private var clawService
+    @Environment(\.theme) var theme
     @Binding var isPresented: Bool
 
     var body: some View {
@@ -11,59 +12,78 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("SETTINGS")
-                    .font(CyberTheme.headlineFont(size: 12))
+                    .font(AppTheme.headlineFont(size: 12))
                     .tracking(3)
-                    .foregroundColor(CyberTheme.primary)
+                    .foregroundColor(theme.primary)
                 Spacer()
                 Button { isPresented = false } label: {
                     Image(systemName: "xmark")
-                        .foregroundColor(CyberTheme.onSurfaceVariant)
+                        .foregroundColor(theme.onSurfaceVariant)
                 }
                 .buttonStyle(.plain)
+            }
+
+            sectionHeader("THEME")
+
+            HStack(spacing: 8) {
+                ForEach(AppTheme.allCases, id: \.self) { t in
+                    Button {
+                        settings.currentTheme = t
+                    } label: {
+                        Text(t == .redact ? "REDACT" : "MATRIX")
+                            .font(AppTheme.headlineFont(size: 9))
+                            .tracking(2)
+                            .foregroundColor(settings.currentTheme == t ? theme.surface : theme.onSurfaceVariant)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(settings.currentTheme == t ? theme.primary : theme.surfaceContainerLowest)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
 
             sectionHeader("OPENCLAW CONNECTION")
 
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("HOST").font(CyberTheme.labelFont(size: 7)).foregroundColor(CyberTheme.onSurfaceVariant)
+                    Text("HOST").font(AppTheme.labelFont(size: 7)).foregroundColor(theme.onSurfaceVariant)
                     TextField("127.0.0.1", text: $settings.openClawHost)
                         .textFieldStyle(.plain)
-                        .font(CyberTheme.monoFont(size: 10))
-                        .foregroundColor(CyberTheme.onSurface)
+                        .font(AppTheme.monoFont(size: 10))
+                        .foregroundColor(theme.onSurface)
                         .padding(6)
-                        .background(CyberTheme.surfaceContainerLowest)
+                        .background(theme.surfaceContainerLowest)
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("PORT").font(CyberTheme.labelFont(size: 7)).foregroundColor(CyberTheme.onSurfaceVariant)
+                    Text("PORT").font(AppTheme.labelFont(size: 7)).foregroundColor(theme.onSurfaceVariant)
                     TextField("18789", value: $settings.openClawPort, format: .number)
                         .textFieldStyle(.plain)
-                        .font(CyberTheme.monoFont(size: 10))
-                        .foregroundColor(CyberTheme.onSurface)
+                        .font(AppTheme.monoFont(size: 10))
+                        .foregroundColor(theme.onSurface)
                         .padding(6)
-                        .background(CyberTheme.surfaceContainerLowest)
+                        .background(theme.surfaceContainerLowest)
                         .frame(width: 80)
                 }
             }
 
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("TOKEN").font(CyberTheme.labelFont(size: 7)).foregroundColor(CyberTheme.onSurfaceVariant)
+                    Text("TOKEN").font(AppTheme.labelFont(size: 7)).foregroundColor(theme.onSurfaceVariant)
                     SecureField("optional", text: $settings.openClawToken)
                         .textFieldStyle(.plain)
-                        .font(CyberTheme.monoFont(size: 10))
-                        .foregroundColor(CyberTheme.onSurface)
+                        .font(AppTheme.monoFont(size: 10))
+                        .foregroundColor(theme.onSurface)
                         .padding(6)
-                        .background(CyberTheme.surfaceContainerLowest)
+                        .background(theme.surfaceContainerLowest)
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("AGENT").font(CyberTheme.labelFont(size: 7)).foregroundColor(CyberTheme.onSurfaceVariant)
+                    Text("AGENT").font(AppTheme.labelFont(size: 7)).foregroundColor(theme.onSurfaceVariant)
                     TextField("main", text: $settings.openClawAgent)
                         .textFieldStyle(.plain)
-                        .font(CyberTheme.monoFont(size: 10))
-                        .foregroundColor(CyberTheme.onSurface)
+                        .font(AppTheme.monoFont(size: 10))
+                        .foregroundColor(theme.onSurface)
                         .padding(6)
-                        .background(CyberTheme.surfaceContainerLowest)
+                        .background(theme.surfaceContainerLowest)
                         .frame(width: 80)
                 }
             }
@@ -78,12 +98,12 @@ struct SettingsView: View {
                 }
             } label: {
                 Text("CONNECT")
-                    .font(CyberTheme.headlineFont(size: 9))
+                    .font(AppTheme.headlineFont(size: 9))
                     .tracking(2)
-                    .foregroundColor(CyberTheme.surface)
+                    .foregroundColor(theme.surface)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .background(clawService.status == .running ? CyberTheme.primary.opacity(0.5) : CyberTheme.primary)
+                    .background(clawService.status == .running ? theme.primary.opacity(0.5) : theme.primary)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -92,15 +112,15 @@ struct SettingsView: View {
         .padding(16)
         .frame(width: 320)
         .fixedSize(horizontal: false, vertical: true)
-        .background(CyberTheme.surfaceContainer)
+        .background(theme.surfaceContainer)
         .contentShape(Rectangle())
-        .overlay(Rectangle().stroke(CyberTheme.outlineVariant.opacity(0.3), lineWidth: 1))
+        .overlay(Rectangle().stroke(theme.outlineVariant.opacity(0.3), lineWidth: 1))
     }
 
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
-            .font(CyberTheme.headlineFont(size: 8))
+            .font(AppTheme.headlineFont(size: 8))
             .tracking(2)
-            .foregroundColor(CyberTheme.onSurfaceVariant.opacity(0.6))
+            .foregroundColor(theme.onSurfaceVariant.opacity(0.6))
     }
 }

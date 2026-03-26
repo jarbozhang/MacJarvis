@@ -1,40 +1,41 @@
 import SwiftUI
 
 struct HardwareStatsView: View {
+    @Environment(\.theme) var theme
     @Environment(SystemMonitorService.self) private var monitor
 
     var body: some View {
-        HStack(spacing: CyberTheme.cardSpacing) {
+        HStack(spacing: AppTheme.cardSpacing) {
             VStack(alignment: .leading, spacing: 4) {
                 Text("CPU Load")
-                    .font(CyberTheme.headlineFont(size: 7))
+                    .font(AppTheme.headlineFont(size: 7))
                     .textCase(.uppercase)
-                    .foregroundColor(CyberTheme.onSurfaceVariant)
+                    .foregroundColor(theme.onSurfaceVariant)
                 Text(String(format: "%.1f%%", monitor.cpuUsage))
-                    .font(CyberTheme.headlineFont(size: 12))
-                    .foregroundColor(CyberTheme.onSurface)
+                    .font(AppTheme.headlineFont(size: 12))
+                    .foregroundColor(theme.onSurface)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(8)
-            .background(CyberTheme.surfaceContainer)
+            .background(theme.surfaceContainer)
             .overlay(alignment: .top) {
-                Rectangle().fill(CyberTheme.primary.opacity(0.4)).frame(height: 1)
+                Rectangle().fill(theme.primary.opacity(0.4)).frame(height: 1)
             }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Mem")
-                    .font(CyberTheme.headlineFont(size: 7))
+                    .font(AppTheme.headlineFont(size: 7))
                     .textCase(.uppercase)
-                    .foregroundColor(CyberTheme.onSurfaceVariant)
+                    .foregroundColor(theme.onSurfaceVariant)
                 Text(String(format: "%.1f%%", monitor.memoryUsage))
-                    .font(CyberTheme.headlineFont(size: 12))
-                    .foregroundColor(CyberTheme.onSurface)
+                    .font(AppTheme.headlineFont(size: 12))
+                    .foregroundColor(theme.onSurface)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(8)
-            .background(CyberTheme.surfaceContainer)
+            .background(theme.surfaceContainer)
             .overlay(alignment: .top) {
-                Rectangle().fill(CyberTheme.secondary.opacity(0.4)).frame(height: 1)
+                Rectangle().fill(theme.secondary.opacity(0.4)).frame(height: 1)
             }
         }
     }

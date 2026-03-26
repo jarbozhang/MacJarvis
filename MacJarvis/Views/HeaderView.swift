@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct HeaderView: View {
+    @Environment(\.theme) var theme
     @State private var currentTime = Date()
     @Binding var showSettings: Bool
 
@@ -15,35 +16,35 @@ struct HeaderView: View {
         HStack {
             HStack(spacing: 6) {
                 Image(systemName: "terminal")
-                    .foregroundColor(CyberTheme.primary)
+                    .foregroundColor(theme.primary)
                     .font(.system(size: 14))
                 Text("[SYS.MONITOR.v4.LND]")
-                    .font(CyberTheme.headlineFont(size: 10))
+                    .font(AppTheme.headlineFont(size: 10))
                     .tracking(3)
                     .textCase(.uppercase)
-                    .foregroundColor(CyberTheme.primary)
+                    .foregroundColor(theme.primary)
             }
 
             Spacer()
 
             HStack(spacing: 16) {
                 Text("\(NSUserName())-JARVIS")
-                    .font(CyberTheme.labelFont(size: 8))
+                    .font(AppTheme.labelFont(size: 8))
                     .tracking(2)
                     .textCase(.uppercase)
-                    .foregroundColor(CyberTheme.onSurfaceVariant)
+                    .foregroundColor(theme.onSurfaceVariant)
 
                 Text(timeFormatter.string(from: currentTime))
-                    .font(CyberTheme.labelFont(size: 8))
+                    .font(AppTheme.labelFont(size: 8))
                     .tracking(2)
-                    .foregroundColor(CyberTheme.primary)
+                    .foregroundColor(theme.primary)
                     .onReceive(timer) { currentTime = $0 }
 
                 Button {
                     showSettings.toggle()
                 } label: {
                     Image(systemName: "gearshape")
-                        .foregroundColor(CyberTheme.primary)
+                        .foregroundColor(theme.primary)
                         .font(.system(size: 12))
                 }
                 .buttonStyle(.plain)
@@ -51,9 +52,9 @@ struct HeaderView: View {
         }
         .padding(.horizontal, 12)
         .frame(height: 40)
-        .background(CyberTheme.surfaceContainerHigh.opacity(0.8))
+        .background(theme.surfaceContainerHigh.opacity(0.8))
         .overlay(alignment: .bottom) {
-            Rectangle().fill(CyberTheme.primary.opacity(0.2)).frame(height: 1)
+            Rectangle().fill(theme.primary.opacity(0.2)).frame(height: 1)
         }
     }
 }

@@ -18,8 +18,9 @@ struct MacJarvisApp: App {
                 .environment(openClawService)
                 .environment(voiceService)
                 .environment(systemMonitor)
+                .environment(\.theme, settingsService.currentTheme)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(CyberTheme.surface)
+                .background(settingsService.currentTheme.surface)
                 .onDisappear {
                     voiceService.cleanup()
                 }

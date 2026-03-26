@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct TokenCard: View {
+    @Environment(\.theme) var theme
     let usage: ToolUsage
     let accentColor: Color
     let subtitle: String
@@ -38,11 +39,11 @@ struct TokenCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(usage.name.uppercased())
-                        .font(CyberTheme.headlineFont(size: 9))
+                        .font(AppTheme.headlineFont(size: 9))
                         .foregroundColor(accentColor)
                     Text(subtitle)
-                        .font(CyberTheme.labelFont(size: 7))
-                        .foregroundColor(CyberTheme.onSurfaceVariant)
+                        .font(AppTheme.labelFont(size: 7))
+                        .foregroundColor(theme.onSurfaceVariant)
                 }
                 Spacer()
                 Image(systemName: iconName)
@@ -55,25 +56,25 @@ struct TokenCard: View {
             HStack(alignment: .bottom) {
                 if let pct = percentage {
                     Text("\(Int(pct * 100))%")
-                        .font(CyberTheme.headlineFont(size: 18))
-                        .foregroundColor(CyberTheme.onSurface)
+                        .font(AppTheme.headlineFont(size: 18))
+                        .foregroundColor(theme.onSurface)
                 } else if usage.totalTokens == nil, let msgs = usage.messageCount {
                     Text("\(msgs)")
-                        .font(CyberTheme.headlineFont(size: 18))
-                        .foregroundColor(CyberTheme.onSurface)
+                        .font(AppTheme.headlineFont(size: 18))
+                        .foregroundColor(theme.onSurface)
                     Text("msg")
-                        .font(CyberTheme.labelFont(size: 8))
-                        .foregroundColor(CyberTheme.onSurfaceVariant)
+                        .font(AppTheme.labelFont(size: 8))
+                        .foregroundColor(theme.onSurfaceVariant)
                 } else {
                     Text("--")
-                        .font(CyberTheme.headlineFont(size: 18))
-                        .foregroundColor(CyberTheme.onSurface)
+                        .font(AppTheme.headlineFont(size: 18))
+                        .foregroundColor(theme.onSurface)
                 }
                 Spacer()
                 Text(usageText)
-                    .font(CyberTheme.labelFont(size: 7))
+                    .font(AppTheme.labelFont(size: 7))
                     .textCase(.uppercase)
-                    .foregroundColor(CyberTheme.onSurfaceVariant)
+                    .foregroundColor(theme.onSurfaceVariant)
             }
 
             if let pct = percentage {
@@ -82,7 +83,7 @@ struct TokenCard: View {
             }
         }
         .padding(12)
-        .background(CyberTheme.surfaceContainerLow.opacity(0.6))
+        .background(theme.surfaceContainerLow.opacity(0.6))
         .overlay(alignment: .leading) {
             Rectangle().fill(accentColor).frame(width: 2)
         }

@@ -3,6 +3,10 @@ import Foundation
 @Observable
 @MainActor
 class SettingsService {
+    var currentTheme: AppTheme {
+        didSet { UserDefaults.standard.set(currentTheme.rawValue, forKey: "currentTheme") }
+    }
+
     var openClawHost: String {
         didSet { UserDefaults.standard.set(openClawHost, forKey: "openClawHost") }
     }
@@ -29,6 +33,12 @@ class SettingsService {
     }
 
     init() {
+        if let raw = UserDefaults.standard.string(forKey: "currentTheme"),
+           let theme = AppTheme(rawValue: raw) {
+            self.currentTheme = theme
+        } else {
+            self.currentTheme = .redact
+        }
         self.openClawHost = UserDefaults.standard.string(forKey: "openClawHost") ?? "127.0.0.1"
         let storedPort = UserDefaults.standard.integer(forKey: "openClawPort")
         self.openClawPort = storedPort > 0 ? storedPort : 18789

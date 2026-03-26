@@ -1,10 +1,12 @@
 import SwiftUI
 
 struct BottomNavBar: View {
+    @Environment(\.theme) var theme
+
     var body: some View {
         HStack(spacing: 0) {
             navItem(
-                icon: { LobsterShape(bodyColor: CyberTheme.surface).frame(width: 20, height: 20) },
+                icon: { LobsterShape(bodyColor: theme.surface).frame(width: 20, height: 20) },
                 label: "OPENCLAW", isActive: true)
             navItem(
                 icon: { Image(systemName: "chevron.left.forwardslash.chevron.right").font(.system(size: 16)) },
@@ -17,10 +19,10 @@ struct BottomNavBar: View {
                 label: "CLAUDE", isActive: false)
         }
         .frame(height: 48)
-        .background(CyberTheme.surface)
+        .background(theme.surface)
         .pixelGrid()
         .overlay(alignment: .top) {
-            Rectangle().fill(CyberTheme.surfaceContainerHigh).frame(height: 1)
+            Rectangle().fill(theme.surfaceContainerHigh).frame(height: 1)
         }
     }
 
@@ -28,12 +30,12 @@ struct BottomNavBar: View {
         VStack(spacing: 2) {
             icon()
             Text(label)
-                .font(CyberTheme.headlineFont(size: 8))
+                .font(AppTheme.headlineFont(size: 8))
                 .textCase(.uppercase)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 4)
-        .foregroundColor(isActive ? CyberTheme.surface : CyberTheme.onSurface.opacity(0.5))
-        .background(isActive ? CyberTheme.primary : Color.clear)
+        .foregroundColor(isActive ? theme.surface : theme.onSurface.opacity(0.5))
+        .background(isActive ? theme.primary : Color.clear)
     }
 }

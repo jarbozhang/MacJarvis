@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct LobsterShape: View {
-    var bodyColor: Color = CyberTheme.primary
+    var bodyColor: Color = Color(hex: 0xFF8E80)
     var antennaColor: Color = Color(hex: 0xFF6B6B)
     var eyeHighlightColor: Color = Color(hex: 0x00E5CC)
     var isBlinking: Bool = false

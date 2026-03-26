@@ -32,7 +32,8 @@ extension View {
 
 // MARK: - Pixel Grid Background
 struct PixelGridBackground: View {
-    var dotColor: Color = CyberTheme.outlineVariant
+    @Environment(\.theme) var theme
+    var dotColor: Color?
     var spacing: CGFloat = 16
 
     var body: some View {
@@ -43,7 +44,7 @@ struct PixelGridBackground: View {
                 var x: CGFloat = 0
                 while x < size.width {
                     let rect = CGRect(x: x - dotRadius, y: y - dotRadius, width: dotRadius * 2, height: dotRadius * 2)
-                    context.fill(Path(ellipseIn: rect), with: .color(dotColor))
+                    context.fill(Path(ellipseIn: rect), with: .color(dotColor ?? theme.outlineVariant))
                     x += spacing
                 }
                 y += spacing

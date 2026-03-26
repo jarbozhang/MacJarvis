@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct CoreStatusView: View {
+    @Environment(\.theme) var theme
     @Environment(OpenClawService.self) private var clawService
     @Environment(SystemMonitorService.self) private var monitor
     @State private var now = Date()
@@ -29,7 +30,7 @@ struct CoreStatusView: View {
 
             ZStack {
                 Circle()
-                    .fill(CyberTheme.primary.opacity(0.2))
+                    .fill(theme.primary.opacity(0.2))
                     .frame(width: 80, height: 80)
                     .blur(radius: 16)
                     .opacity(clawService.status == .running ? 1 : 0.3)
@@ -37,7 +38,7 @@ struct CoreStatusView: View {
 
                 LobsterShape(isBlinking: isBlinking)
                     .frame(width: 64, height: 64)
-                    .neonGlow()
+                    .neonGlow(color: theme.primary)
                     .opacity(clawService.status == .running ? 1 : 0.4)
                     .scaleEffect(isBreathing ? 1.12 : 0.95)
             }
@@ -55,14 +56,14 @@ struct CoreStatusView: View {
             }
 
             Text(statusText)
-                .font(CyberTheme.headlineFont(size: 10))
+                .font(AppTheme.headlineFont(size: 10))
                 .tracking(1)
-                .foregroundColor(CyberTheme.primary)
+                .foregroundColor(theme.primary)
 
             Text(uptimeText)
-                .font(CyberTheme.monoFont(size: 8))
+                .font(AppTheme.monoFont(size: 8))
                 .tracking(2)
-                .foregroundColor(CyberTheme.onSurfaceVariant.opacity(0.7))
+                .foregroundColor(theme.onSurfaceVariant.opacity(0.7))
                 .onReceive(uptimeTimer) { now = $0 }
 
             Spacer()
@@ -70,39 +71,39 @@ struct CoreStatusView: View {
             VStack(spacing: 4) {
                 HStack {
                     Text("Disk")
-                        .font(CyberTheme.headlineFont(size: 7))
+                        .font(AppTheme.headlineFont(size: 7))
                         .textCase(.uppercase)
-                        .foregroundColor(CyberTheme.tertiary)
+                        .foregroundColor(theme.tertiary)
                     Spacer()
                     Text(String(format: "%.0f/%.0fG", monitor.usedDiskGB, monitor.totalDiskGB))
-                        .font(CyberTheme.headlineFont(size: 7))
-                        .foregroundColor(CyberTheme.tertiary)
+                        .font(AppTheme.headlineFont(size: 7))
+                        .foregroundColor(theme.tertiary)
                 }
-                PixelProgressBar(value: monitor.diskUsage / 100.0, color: CyberTheme.tertiary)
+                PixelProgressBar(value: monitor.diskUsage / 100.0, color: theme.tertiary)
                     .frame(height: 4)
             }
             .padding(.horizontal, 8)
             .padding(.bottom, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(CyberTheme.surfaceContainerHigh.opacity(0.5))
-        .overlay(Rectangle().stroke(CyberTheme.outlineVariant.opacity(0.3), lineWidth: 1))
+        .background(theme.surfaceContainerHigh.opacity(0.5))
+        .overlay(Rectangle().stroke(theme.outlineVariant.opacity(0.3), lineWidth: 1))
         .overlay(alignment: .topLeading) { cornerDot }
         .overlay(alignment: .topTrailing) { cornerDot }
         .overlay(alignment: .bottomLeading) { cornerDot }
         .overlay(alignment: .bottomTrailing) { cornerDot }
         .overlay(alignment: .topLeading) {
             Text("Core Status")
-                .font(CyberTheme.headlineFont(size: 7))
+                .font(AppTheme.headlineFont(size: 7))
                 .tracking(3)
                 .textCase(.uppercase)
-                .foregroundColor(CyberTheme.onSurfaceVariant.opacity(0.6))
+                .foregroundColor(theme.onSurfaceVariant.opacity(0.6))
                 .padding(.top, 8)
                 .padding(.leading, 12)
         }
     }
 
     private var cornerDot: some View {
-        Rectangle().fill(CyberTheme.primary).frame(width: 4, height: 4)
+        Rectangle().fill(theme.primary).frame(width: 4, height: 4)
     }
 }

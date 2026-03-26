@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct TerminalLogView: View {
+    @Environment(\.theme) var theme
     @Environment(OpenClawService.self) private var clawService
     @Environment(VoiceService.self) private var voiceService
 
@@ -20,18 +21,18 @@ struct TerminalLogView: View {
             // Terminal header
             HStack(spacing: 6) {
                 Circle()
-                    .fill(CyberTheme.primary)
+                    .fill(theme.primary)
                     .frame(width: 6, height: 6)
 
                 Text("Logs_Live :: Extended_Readout_v4")
-                    .font(CyberTheme.monoFont(size: 10))
+                    .font(AppTheme.monoFont(size: 10))
                     .tracking(2)
                     .textCase(.uppercase)
-                    .foregroundColor(CyberTheme.onSurfaceVariant)
+                    .foregroundColor(theme.onSurfaceVariant)
             }
             .padding(.bottom, 8)
             .overlay(alignment: .bottom) {
-                Rectangle().fill(CyberTheme.outlineVariant.opacity(0.1)).frame(height: 1)
+                Rectangle().fill(theme.outlineVariant.opacity(0.1)).frame(height: 1)
             }
 
             // Messages
@@ -57,26 +58,26 @@ struct TerminalLogView: View {
                 HStack(spacing: 8) {
                     TextField("Enter command...", text: $inputText)
                         .textFieldStyle(.plain)
-                        .font(CyberTheme.monoFont(size: 12))
-                        .foregroundColor(CyberTheme.primary)
+                        .font(AppTheme.monoFont(size: 12))
+                        .foregroundColor(theme.primary)
                         .padding(8)
-                        .background(CyberTheme.surfaceContainer)
+                        .background(theme.surfaceContainer)
                         .onSubmit { sendMessage() }
 
                     Button("SEND") { sendMessage() }
-                        .font(CyberTheme.headlineFont(size: 11))
-                        .foregroundColor(CyberTheme.surface)
+                        .font(AppTheme.headlineFont(size: 11))
+                        .foregroundColor(theme.surface)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(CyberTheme.primary)
+                        .background(theme.primary)
                         .buttonStyle(.plain)
 
                     Button("ESC") {
                         isInputMode = false
                         inputText = ""
                     }
-                    .font(CyberTheme.labelFont(size: 10))
-                    .foregroundColor(CyberTheme.onSurfaceVariant)
+                    .font(AppTheme.labelFont(size: 10))
+                    .foregroundColor(theme.onSurfaceVariant)
                     .buttonStyle(.plain)
                 }
                 .padding(.top, 8)
@@ -85,12 +86,12 @@ struct TerminalLogView: View {
                     Image(systemName: "plus")
                         .font(.system(size: 14))
                     Text(commandButtonLabel)
-                        .font(CyberTheme.headlineFont(size: 12))
+                        .font(AppTheme.headlineFont(size: 12))
                         .tracking(3)
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 48)
-                .foregroundColor(CyberTheme.surface)
+                .foregroundColor(theme.surface)
                 .background(commandButtonColor)
                 .gesture(
                     DragGesture(minimumDistance: 0)
@@ -132,14 +133,14 @@ struct TerminalLogView: View {
             }
         }
         .padding(16)
-        .background(CyberTheme.surfaceContainerLowest)
-        .overlay(Rectangle().stroke(CyberTheme.outlineVariant.opacity(0.2), lineWidth: 1))
+        .background(theme.surfaceContainerLowest)
+        .overlay(Rectangle().stroke(theme.outlineVariant.opacity(0.2), lineWidth: 1))
     }
 
     private var commandButtonColor: Color {
-        if voiceService.isRecording { return CyberTheme.red }
-        if voiceService.isTranscribing { return CyberTheme.secondary }
-        return CyberTheme.primary
+        if voiceService.isRecording { return theme.error }
+        if voiceService.isTranscribing { return theme.secondary }
+        return theme.primary
     }
 
     private var commandButtonLabel: String {
@@ -153,17 +154,17 @@ struct TerminalLogView: View {
     private func terminalLine(for msg: ChatMessage) -> some View {
         let timestamp = timeFormatter.string(from: msg.timestamp)
         let prefix = msg.role == .user ? "USER" : "CLAW"
-        let color = msg.role == .assistant ? CyberTheme.primary : CyberTheme.onSurface
+        let color = msg.role == .assistant ? theme.primary : theme.onSurface
 
         return HStack(alignment: .top, spacing: 0) {
             Text("[\(timestamp)] ")
-                .foregroundColor(CyberTheme.onSurfaceVariant)
+                .foregroundColor(theme.onSurfaceVariant)
             Text(">> \(prefix): ")
                 .foregroundColor(color)
             Text(msg.content)
                 .foregroundColor(color.opacity(0.7))
         }
-        .font(CyberTheme.monoFont(size: 11))
+        .font(AppTheme.monoFont(size: 11))
         .lineLimit(nil)
     }
 

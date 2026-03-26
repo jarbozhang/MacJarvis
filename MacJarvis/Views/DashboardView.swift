@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct DashboardView: View {
+    @Environment(\.theme) var theme
     @State private var showSettings = false
 
     var body: some View {
@@ -27,7 +28,7 @@ struct DashboardView: View {
 
                 BottomNavBar()
             }
-            .background(CyberTheme.surface)
+            .background(theme.surface)
             .pixelGrid()
             .crtEffect()
 
