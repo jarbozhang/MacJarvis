@@ -1,5 +1,4 @@
 import Foundation
-import Security
 
 @Observable
 @MainActor
@@ -34,12 +33,7 @@ class TokenService {
             let codexUsage = await Self.queryCodexUsageAPI(authPath: codexAuthPath)
             let codexModel = Self.readCodexModel(configPath: codexConfigPath)
             let claudeHudPath = NSHomeDirectory() + "/.claude/plugins/claude-hud/.usage-cache.json"
-            let claudeUsage: (fiveHourPercent: Int, subscriptionType: String?)?
-            if let cached = Self.queryClaudeUsageCache(path: claudeHudPath) {
-                claudeUsage = cached
-            } else {
-                claudeUsage = await Self.queryClaudeUsageAPI()
-            }
+            let claudeUsage = Self.queryClaudeUsageCache(path: claudeHudPath)
             let geminiUsage = await Self.queryGeminiUsageAPI(credsPath: geminiCredsPath)
             await MainActor.run { [weak self] in
                 guard let self else { return }
@@ -137,52 +131,6 @@ class TokenService {
         let fiveHour = cacheData["fiveHour"] as? Int ?? 0
         let planName = cacheData["planName"] as? String
         return (fiveHour, planName)
-    }
-
-    nonisolated static func queryClaudeUsageAPI() async -> (fiveHourPercent: Int, subscriptionType: String?)? {
-        // Read OAuth token from macOS Keychain
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: "Claude Code-credentials",
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
-        ]
-
-        var result: AnyObject?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess,
-              let data = result as? Data,
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let oauth = json["claudeAiOauth"] as? [String: Any],
-              let accessToken = oauth["accessToken"] as? String else {
-            return nil
-        }
-
-        let subscriptionType = oauth["subscriptionType"] as? String
-
-        // Call Claude usage API
-        guard let url = URL(string: "https://api.anthropic.com/api/oauth/usage") else { return nil }
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
-        request.timeoutInterval = 10
-
-        guard let (responseData, response) = try? await URLSession.shared.data(for: request),
-              let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200,
-              let usageJson = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] else {
-            return nil
-        }
-
-        // Parse five_hour.utilization
-        var fiveHourPercent = 0
-        if let fiveHour = usageJson["five_hour"] as? [String: Any],
-           let utilization = fiveHour["utilization"] as? Double {
-            fiveHourPercent = Int(utilization)
-        }
-
-        return (fiveHourPercent, subscriptionType)
     }
 
     nonisolated static func queryGeminiUsageAPI(credsPath: String) async -> (usedPercent: Int, tierName: String?, modelName: String?)? {
