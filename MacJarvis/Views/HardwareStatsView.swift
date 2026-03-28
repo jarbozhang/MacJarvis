@@ -17,7 +17,7 @@ struct HardwareStatsView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(8)
-            .background(theme.surfaceContainer)
+            .background(theme.surfaceContainer.opacity(0.6))
             .overlay(alignment: .top) {
                 Rectangle().fill(theme.primary.opacity(0.4)).frame(height: 1)
             }
@@ -33,7 +33,7 @@ struct HardwareStatsView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(8)
-            .background(theme.surfaceContainer)
+            .background(theme.surfaceContainer.opacity(0.6))
             .overlay(alignment: .top) {
                 Rectangle().fill(theme.secondary.opacity(0.4)).frame(height: 1)
             }

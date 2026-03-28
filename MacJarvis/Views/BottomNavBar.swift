@@ -19,7 +19,7 @@ struct BottomNavBar: View {
                 label: "CLAUDE", isActive: false)
         }
         .frame(height: 48)
-        .background(theme.surface)
+        .background(theme.surface.opacity(0.7))
         .pixelGrid()
         .overlay(alignment: .top) {
             Rectangle().fill(theme.surfaceContainerHigh).frame(height: 1)

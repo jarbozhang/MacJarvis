@@ -18,11 +18,12 @@ struct HeaderView: View {
                 Image(systemName: "terminal")
                     .foregroundColor(theme.primary)
                     .font(.system(size: 14))
-                Text("[SYS.MONITOR.v4.LND]")
-                    .font(AppTheme.headlineFont(size: 10))
-                    .tracking(3)
-                    .textCase(.uppercase)
-                    .foregroundColor(theme.primary)
+                GradientShiftText(
+                    text: "[SYS.MONITOR.v4.LND]",
+                    font: AppTheme.headlineFont(size: 10),
+                    tracking: 3
+                )
+                .textCase(.uppercase)
             }
 
             Spacer()

@@ -9,17 +9,34 @@ class DisplayManager {
 
     private var observer: NSObjectProtocol?
 
-    // nonisolated constants to avoid Swift 6 MainActor isolation issues
-    nonisolated static let targetWidth: CGFloat = 800
-    nonisolated static let targetHeight: CGFloat = 480
+    // Detected content size for the matched screen
+    var contentSize: CGSize = CGSize(width: 800, height: 480)
+
+    // Supported target resolutions
+    nonisolated static let supportedResolutions: [(width: CGFloat, height: CGFloat)] = [
+        (800, 480),
+        (1280, 720)
+    ]
     nonisolated static let tolerance: CGFloat = 0.10
 
+    nonisolated static func matchedResolution(width: CGFloat, height: CGFloat) -> (width: CGFloat, height: CGFloat)? {
+        for res in supportedResolutions {
+            let wMin = res.width * (1 - tolerance)
+            let wMax = res.width * (1 + tolerance)
+            let hMin = res.height * (1 - tolerance)
+            let hMax = res.height * (1 + tolerance)
+            if width >= wMin && width <= wMax && height >= hMin && height <= hMax {
+                return res
+            }
+        }
+        return nil
+    }
+
+    // Keep backward compatibility for tests
+    nonisolated static let targetWidth: CGFloat = 800
+    nonisolated static let targetHeight: CGFloat = 480
     nonisolated static func matchesTargetResolution(width: CGFloat, height: CGFloat) -> Bool {
-        let wMin = targetWidth * (1 - tolerance)
-        let wMax = targetWidth * (1 + tolerance)
-        let hMin = targetHeight * (1 - tolerance)
-        let hMax = targetHeight * (1 + tolerance)
-        return width >= wMin && width <= wMax && height >= hMin && height <= hMax
+        matchedResolution(width: width, height: height) != nil
     }
 
     func startMonitoring() {
@@ -48,9 +65,10 @@ class DisplayManager {
             let pixelWidth = deviceSize.width * screen.backingScaleFactor
             let pixelHeight = deviceSize.height * screen.backingScaleFactor
 
-            if Self.matchesTargetResolution(width: pixelWidth, height: pixelHeight)
-                || Self.matchesTargetResolution(width: deviceSize.width, height: deviceSize.height) {
+            if let res = Self.matchedResolution(width: pixelWidth, height: pixelHeight)
+                ?? Self.matchedResolution(width: deviceSize.width, height: deviceSize.height) {
                 targetScreen = screen
+                contentSize = CGSize(width: res.width, height: res.height)
                 isExternalScreenConnected = true
                 moveWindowToTarget()
                 return
@@ -77,6 +95,6 @@ class DisplayManager {
         guard let window = NSApplication.shared.windows.first else { return }
         NSApp.presentationOptions = []
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        window.setFrame(CGRect(x: 100, y: 100, width: 800, height: 480), display: true)
+        window.setFrame(CGRect(x: 100, y: 100, width: contentSize.width, height: contentSize.height), display: true)
     }
 }

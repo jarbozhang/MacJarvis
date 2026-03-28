@@ -2,27 +2,34 @@ import SwiftUI
 
 struct DashboardView: View {
     @Environment(\.theme) var theme
+    @Environment(DisplayManager.self) private var displayManager
     @State private var showSettings = false
 
     var body: some View {
+        let size = displayManager.contentSize
+        let sideColumnWidth = size.width * 0.22 // ~175 at 800, ~282 at 1280
+
         ZStack {
             VStack(spacing: 0) {
                 HeaderView(showSettings: $showSettings)
 
                 HStack(spacing: 8) {
-                    // Left column (3/12)
+                    // Left column
                     VStack(spacing: 8) {
                         CoreStatusView()
                         HardwareStatsView()
                     }
-                    .frame(width: 175)
+                    .frame(width: sideColumnWidth)
+                    .fadeInUp(delay: 0)
 
-                    // Middle column (3/12)
+                    // Middle column
                     TokenColumnView()
-                        .frame(width: 175)
+                        .frame(width: sideColumnWidth)
+                        .fadeInUp(delay: 0.15)
 
-                    // Right column (6/12)
+                    // Right column (fills remaining)
                     TerminalLogView()
+                        .fadeInUp(delay: 0.3)
                 }
                 .padding(8)
 
@@ -45,7 +52,7 @@ struct DashboardView: View {
                 SettingsView(isPresented: $showSettings)
             }
         }
-        .frame(width: 800, height: 480)
+        .frame(width: size.width, height: size.height)
         .clipped()
     }
 }

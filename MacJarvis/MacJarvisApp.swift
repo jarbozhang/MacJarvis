@@ -51,6 +51,6 @@ struct MacJarvisApp: App {
                     }
                 }
         }
-        .defaultSize(width: 800, height: 480)
+        .defaultSize(width: displayManager.contentSize.width, height: displayManager.contentSize.height)
     }
 }

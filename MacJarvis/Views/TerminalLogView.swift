@@ -133,7 +133,7 @@ struct TerminalLogView: View {
             }
         }
         .padding(16)
-        .background(theme.surfaceContainerLowest)
+        .background(theme.surfaceContainerLowest.opacity(0.6))
         .overlay(Rectangle().stroke(theme.outlineVariant.opacity(0.2), lineWidth: 1))
     }
 

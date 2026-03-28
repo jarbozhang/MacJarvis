@@ -5,7 +5,6 @@ struct CoreStatusView: View {
     @Environment(OpenClawService.self) private var clawService
     @Environment(SystemMonitorService.self) private var monitor
     @State private var now = Date()
-    @State private var isBreathing = false
     @State private var isBlinking = false
     private let uptimeTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
     private let blinkTimer = Timer.publish(every: 4, on: .main, in: .common).autoconnect()
@@ -32,12 +31,7 @@ struct CoreStatusView: View {
                 .frame(width: 64, height: 64)
                 .neonGlow(color: theme.primary)
                 .opacity(clawService.status == .running ? 1 : 0.4)
-                .scaleEffect(isBreathing ? 1.12 : 0.95)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
-                    isBreathing = true
-                }
-            }
+                .floating(amplitude: 4, duration: 1.5)
             .onReceive(blinkTimer) { _ in
                 guard clawService.status == .running else { return }
                 isBlinking = true
