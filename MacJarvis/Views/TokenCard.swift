@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TokenCard: View {
     @Environment(\.theme) var theme
+    @Environment(\.scaleFactor) var scale
     @Environment(TokenService.self) private var tokenService
     let usage: ToolUsage
     let accentColor: Color
@@ -41,26 +42,26 @@ struct TokenCard: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(usage.name.uppercased())
-                        .font(AppTheme.headlineFont(size: 9))
+                        .font(AppTheme.headlineFont(size: 9 * scale))
                         .foregroundColor(accentColor)
                     Text(subtitle)
-                        .font(AppTheme.labelFont(size: 7))
+                        .font(AppTheme.labelFont(size: 7 * scale))
                         .foregroundColor(theme.onSurfaceVariant)
                 }
                 Spacer()
                 if usage.isAPIMode {
                     // Time bucket badge
                     Text(usage.timeBucket.rawValue)
-                        .font(AppTheme.headlineFont(size: 7))
-                        .tracking(1)
+                        .font(AppTheme.headlineFont(size: 7 * scale))
+                        .tracking(1 * scale)
                         .foregroundColor(accentColor)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
+                        .padding(.horizontal, 6 * scale)
+                        .padding(.vertical, 2 * scale)
                         .background(accentColor.opacity(0.15))
                 } else {
                     Image(systemName: iconName)
                         .foregroundColor(accentColor)
-                        .font(.system(size: 14))
+                        .font(.system(size: 14 * scale))
                 }
             }
 
@@ -70,11 +71,11 @@ struct TokenCard: View {
                 // API mode: token count + cost
                 HStack(alignment: .bottom) {
                     Text(usage.formattedTokens)
-                        .font(AppTheme.headlineFont(size: 18))
+                        .font(AppTheme.headlineFont(size: 18 * scale))
                         .foregroundColor(theme.onSurface)
                     Spacer()
                     Text(usageText)
-                        .font(AppTheme.headlineFont(size: 12))
+                        .font(AppTheme.headlineFont(size: 12 * scale))
                         .foregroundColor(accentColor)
                 }
             } else {
@@ -82,23 +83,23 @@ struct TokenCard: View {
                 HStack(alignment: .bottom) {
                     if let pct = percentage {
                         Text("\(Int(pct * 100))%")
-                            .font(AppTheme.headlineFont(size: 18))
+                            .font(AppTheme.headlineFont(size: 18 * scale))
                             .foregroundColor(theme.onSurface)
                     } else if usage.totalTokens == nil, let msgs = usage.messageCount {
                         Text("\(msgs)")
-                            .font(AppTheme.headlineFont(size: 18))
+                            .font(AppTheme.headlineFont(size: 18 * scale))
                             .foregroundColor(theme.onSurface)
                         Text("msg")
-                            .font(AppTheme.labelFont(size: 8))
+                            .font(AppTheme.labelFont(size: 8 * scale))
                             .foregroundColor(theme.onSurfaceVariant)
                     } else {
                         Text("--")
-                            .font(AppTheme.headlineFont(size: 18))
+                            .font(AppTheme.headlineFont(size: 18 * scale))
                             .foregroundColor(theme.onSurface)
                     }
                     Spacer()
                     Text(usageText)
-                        .font(AppTheme.labelFont(size: 7))
+                        .font(AppTheme.labelFont(size: 7 * scale))
                         .textCase(.uppercase)
                         .foregroundColor(theme.onSurfaceVariant)
                 }
@@ -109,7 +110,7 @@ struct TokenCard: View {
                 }
             }
         }
-        .padding(12)
+        .padding(12 * scale)
         .background(theme.surfaceContainerLow.opacity(0.6))
         .overlay(alignment: .leading) {
             Rectangle().fill(accentColor).frame(width: 2)

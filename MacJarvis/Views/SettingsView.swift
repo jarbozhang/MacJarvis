@@ -4,6 +4,7 @@ struct SettingsView: View {
     @Environment(SettingsService.self) private var settings
     @Environment(OpenClawService.self) private var clawService
     @Environment(\.theme) var theme
+    @Environment(\.scaleFactor) var scale
     @Binding var isPresented: Bool
 
     var body: some View {
@@ -182,8 +183,8 @@ struct SettingsView: View {
             .buttonStyle(.plain)
 
         }
-        .padding(16)
-        .frame(width: 320)
+        .padding(16 * scale)
+        .frame(width: 320 * scale)
         .fixedSize(horizontal: false, vertical: true)
         .background(theme.surfaceContainer)
         .contentShape(Rectangle())

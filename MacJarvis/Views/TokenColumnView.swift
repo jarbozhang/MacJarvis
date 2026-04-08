@@ -2,11 +2,12 @@ import SwiftUI
 
 struct TokenColumnView: View {
     @Environment(\.theme) var theme
+    @Environment(\.scaleFactor) var scale
     @Environment(TokenService.self) private var tokenService
     @Environment(SettingsService.self) private var settings
 
     var body: some View {
-        VStack(spacing: AppTheme.cardSpacing) {
+        VStack(spacing: AppTheme.cardSpacing * scale) {
             if let codex = tokenService.tools.first(where: { $0.id == "codex" }) {
                 TokenCard(usage: codex, accentColor: theme.primary,
                     subtitle: (codex.modelName ?? "--").uppercased(),

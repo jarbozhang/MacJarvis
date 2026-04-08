@@ -114,15 +114,23 @@ enum AppTheme: String, CaseIterable {
     }
 }
 
-// MARK: - Environment Key
+// MARK: - Environment Keys
 struct ThemeKey: EnvironmentKey {
     static let defaultValue: AppTheme = .redact
+}
+
+struct ScaleFactorKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 1.0
 }
 
 extension EnvironmentValues {
     var theme: AppTheme {
         get { self[ThemeKey.self] }
         set { self[ThemeKey.self] = newValue }
+    }
+    var scaleFactor: CGFloat {
+        get { self[ScaleFactorKey.self] }
+        set { self[ScaleFactorKey.self] = newValue }
     }
 }
 

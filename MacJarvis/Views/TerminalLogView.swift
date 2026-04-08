@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TerminalLogView: View {
     @Environment(\.theme) var theme
+    @Environment(\.scaleFactor) var scale
     @Environment(OpenClawService.self) private var clawService
     @Environment(VoiceService.self) private var voiceService
     @Environment(SettingsService.self) private var settings
@@ -20,18 +21,18 @@ struct TerminalLogView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Terminal header
-            HStack(spacing: 6) {
+            HStack(spacing: 6 * scale) {
                 Circle()
                     .fill(theme.primary)
-                    .frame(width: 6, height: 6)
+                    .frame(width: 6 * scale, height: 6 * scale)
 
                 Text("Logs_Live :: Extended_Readout_v4")
-                    .font(AppTheme.monoFont(size: 10))
-                    .tracking(2)
+                    .font(AppTheme.monoFont(size: 10 * scale))
+                    .tracking(2 * scale)
                     .textCase(.uppercase)
                     .foregroundColor(theme.onSurfaceVariant)
             }
-            .padding(.bottom, 8)
+            .padding(.bottom, 8 * scale)
             .overlay(alignment: .bottom) {
                 Rectangle().fill(theme.outlineVariant.opacity(0.1)).frame(height: 1)
             }
@@ -56,20 +57,20 @@ struct TerminalLogView: View {
 
             // Command area
             if isInputMode {
-                HStack(spacing: 8) {
+                HStack(spacing: 8 * scale) {
                     TextField("Enter command...", text: $inputText)
                         .textFieldStyle(.plain)
-                        .font(AppTheme.monoFont(size: 12))
+                        .font(AppTheme.monoFont(size: 12 * scale))
                         .foregroundColor(theme.primary)
-                        .padding(8)
+                        .padding(8 * scale)
                         .background(theme.surfaceContainer)
                         .onSubmit { sendMessage() }
 
                     Button("SEND") { sendMessage() }
-                        .font(AppTheme.headlineFont(size: 11))
+                        .font(AppTheme.headlineFont(size: 11 * scale))
                         .foregroundColor(theme.surface)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12 * scale)
+                        .padding(.vertical, 8 * scale)
                         .background(theme.primary)
                         .buttonStyle(.plain)
 
@@ -77,11 +78,11 @@ struct TerminalLogView: View {
                         isInputMode = false
                         inputText = ""
                     }
-                    .font(AppTheme.labelFont(size: 10))
+                    .font(AppTheme.labelFont(size: 10 * scale))
                     .foregroundColor(theme.onSurfaceVariant)
                     .buttonStyle(.plain)
                 }
-                .padding(.top, 8)
+                .padding(.top, 8 * scale)
             } else {
                 VStack(spacing: 2) {
                     Image(systemName: "plus")
@@ -130,10 +131,10 @@ struct TerminalLogView: View {
                         clawService.sendMessage(voiceService.transcript)
                     }
                 }
-                .padding(.top, 8)
+                .padding(.top, 8 * scale)
             }
         }
-        .padding(16)
+        .padding(16 * scale)
         .background(theme.surfaceContainerLowest.opacity(0.6))
         .overlay(Rectangle().stroke(theme.outlineVariant.opacity(0.2), lineWidth: 1))
         .onChange(of: clawService.isStreaming) { oldValue, newValue in
@@ -172,7 +173,7 @@ struct TerminalLogView: View {
             Text(msg.content)
                 .foregroundColor(color.opacity(0.7))
         }
-        .font(AppTheme.monoFont(size: 11))
+        .font(AppTheme.monoFont(size: 11 * scale))
         .lineLimit(nil)
     }
 
