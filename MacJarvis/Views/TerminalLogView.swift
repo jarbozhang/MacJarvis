@@ -4,6 +4,7 @@ struct TerminalLogView: View {
     @Environment(\.theme) var theme
     @Environment(OpenClawService.self) private var clawService
     @Environment(VoiceService.self) private var voiceService
+    @Environment(SettingsService.self) private var settings
 
     @State private var isInputMode = false
     @State private var inputText = ""
@@ -135,6 +136,13 @@ struct TerminalLogView: View {
         .padding(16)
         .background(theme.surfaceContainerLowest.opacity(0.6))
         .overlay(Rectangle().stroke(theme.outlineVariant.opacity(0.2), lineWidth: 1))
+        .onChange(of: clawService.isStreaming) { oldValue, newValue in
+            if oldValue == true && newValue == false && settings.enableTTS {
+                if let last = clawService.messages.last, last.role == .assistant, !last.content.isEmpty {
+                    voiceService.speak(last.content)
+                }
+            }
+        }
     }
 
     private var commandButtonColor: Color {

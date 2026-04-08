@@ -13,6 +13,14 @@ struct ToolUsage: Identifiable {
     var usagePercent: Int?   // API-reported usage percentage (e.g. Claude 5-hour)
     var planName: String?    // Subscription plan (e.g. "Max", "Pro")
     var modelName: String?   // Active model (e.g. "gpt-5.4", "gemini-3-flash")
+    var timeBucket: TimeBucket = .day  // Current time dimension for API mode
+    var isAPIMode: Bool = false        // Whether this tool is in API mode
+
+    var formattedCost: String {
+        guard let c = cost, c > 0 else { return "--" }
+        if c < 0.01 { return String(format: "$%.4f", c) }
+        return String(format: "$%.2f", c)
+    }
 
     var formattedActivity: String {
         if totalTokens != nil {

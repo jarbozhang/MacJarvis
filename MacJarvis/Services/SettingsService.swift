@@ -1,5 +1,10 @@
 import Foundation
 
+enum UsageMode: String, CaseIterable {
+    case subscription
+    case api
+}
+
 @Observable
 @MainActor
 class SettingsService {
@@ -32,6 +37,22 @@ class SettingsService {
         didSet { UserDefaults.standard.set(openClawAgent, forKey: "openClawAgent") }
     }
 
+    var enableTTS: Bool = true {
+        didSet { UserDefaults.standard.set(enableTTS, forKey: "enableTTS") }
+    }
+
+    var claudeMode: UsageMode = .subscription {
+        didSet { UserDefaults.standard.set(claudeMode.rawValue, forKey: "claudeMode") }
+    }
+    var codexMode: UsageMode = .subscription {
+        didSet { UserDefaults.standard.set(codexMode.rawValue, forKey: "codexMode") }
+    }
+
+    /// True when token has never been configured — UI should prompt user
+    var needsTokenSetup: Bool {
+        openClawToken.isEmpty
+    }
+
     init() {
         if let raw = UserDefaults.standard.string(forKey: "currentTheme"),
            let theme = AppTheme(rawValue: raw) {
@@ -39,9 +60,18 @@ class SettingsService {
         } else {
             self.currentTheme = .redact
         }
-        self.openClawHost = UserDefaults.standard.string(forKey: "openClawHost") ?? "127.0.0.1"
-        let storedPort = UserDefaults.standard.integer(forKey: "openClawPort")
-        self.openClawPort = storedPort > 0 ? storedPort : 18789
+        // Default host/port — only use stored value if it was explicitly saved
+        if UserDefaults.standard.object(forKey: "openClawHost") != nil {
+            self.openClawHost = UserDefaults.standard.string(forKey: "openClawHost") ?? "127.0.0.1"
+        } else {
+            self.openClawHost = "127.0.0.1"
+        }
+        if UserDefaults.standard.object(forKey: "openClawPort") != nil {
+            let storedPort = UserDefaults.standard.integer(forKey: "openClawPort")
+            self.openClawPort = storedPort > 0 ? storedPort : 18789
+        } else {
+            self.openClawPort = 18789
+        }
         if UserDefaults.standard.object(forKey: "codexDailyBudget") != nil {
             codexDailyBudget = UserDefaults.standard.integer(forKey: "codexDailyBudget")
         }
@@ -56,6 +86,17 @@ class SettingsService {
         }
         if let agent = UserDefaults.standard.string(forKey: "openClawAgent"), !agent.isEmpty {
             openClawAgent = agent
+        }
+        if UserDefaults.standard.object(forKey: "enableTTS") != nil {
+            enableTTS = UserDefaults.standard.bool(forKey: "enableTTS")
+        }
+        if let raw = UserDefaults.standard.string(forKey: "claudeMode"),
+           let mode = UsageMode(rawValue: raw) {
+            claudeMode = mode
+        }
+        if let raw = UserDefaults.standard.string(forKey: "codexMode"),
+           let mode = UsageMode(rawValue: raw) {
+            codexMode = mode
         }
     }
 }

@@ -42,7 +42,80 @@ struct SettingsView: View {
                 }
             }
 
+            sectionHeader("VOICE")
+
+            HStack(spacing: 8) {
+                Button {
+                    settings.enableTTS.toggle()
+                } label: {
+                    Text(settings.enableTTS ? "ON" : "OFF")
+                        .font(AppTheme.headlineFont(size: 9))
+                        .tracking(2)
+                        .foregroundColor(settings.enableTTS ? theme.surface : theme.onSurfaceVariant)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background(settings.enableTTS ? theme.primary : theme.surfaceContainerLowest)
+                }
+                .buttonStyle(.plain)
+            }
+
+            sectionHeader("USAGE MODE")
+
+            HStack(spacing: 8) {
+                Text("CLAUDE").font(AppTheme.labelFont(size: 7)).foregroundColor(theme.onSurfaceVariant)
+                    .frame(width: 50, alignment: .leading)
+                ForEach(UsageMode.allCases, id: \.self) { mode in
+                    Button {
+                        settings.claudeMode = mode
+                    } label: {
+                        Text(mode == .subscription ? "SUB" : "API")
+                            .font(AppTheme.headlineFont(size: 8))
+                            .tracking(1)
+                            .foregroundColor(settings.claudeMode == mode ? theme.surface : theme.onSurfaceVariant)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 5)
+                            .background(settings.claudeMode == mode ? theme.primary : theme.surfaceContainerLowest)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            HStack(spacing: 8) {
+                Text("CODEX").font(AppTheme.labelFont(size: 7)).foregroundColor(theme.onSurfaceVariant)
+                    .frame(width: 50, alignment: .leading)
+                ForEach(UsageMode.allCases, id: \.self) { mode in
+                    Button {
+                        settings.codexMode = mode
+                    } label: {
+                        Text(mode == .subscription ? "SUB" : "API")
+                            .font(AppTheme.headlineFont(size: 8))
+                            .tracking(1)
+                            .foregroundColor(settings.codexMode == mode ? theme.surface : theme.onSurfaceVariant)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 5)
+                            .background(settings.codexMode == mode ? theme.primary : theme.surfaceContainerLowest)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
             sectionHeader("OPENCLAW CONNECTION")
+
+            // Token missing warning
+            if settings.needsTokenSetup {
+                HStack(spacing: 6) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(theme.error)
+                        .font(.system(size: 10))
+                    Text("请填写 Token 并选择 Agent 后连接")
+                        .font(AppTheme.monoFont(size: 9))
+                        .foregroundColor(theme.error)
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(theme.error.opacity(0.1))
+                .overlay(Rectangle().stroke(theme.error.opacity(0.3), lineWidth: 1))
+            }
 
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 4) {

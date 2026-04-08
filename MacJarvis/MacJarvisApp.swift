@@ -35,7 +35,7 @@ struct MacJarvisApp: App {
                         voiceService.isModelLoaded = true
                     } else {
                         displayManager.startMonitoring()
-                        tokenService.startAutoRefresh()
+                        tokenService.startAutoRefresh(settings: settingsService)
                         voiceService.loadModel()
                         systemMonitor.startMonitoring()
 

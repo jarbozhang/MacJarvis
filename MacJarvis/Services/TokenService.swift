@@ -1,4 +1,5 @@
 import Foundation
+import SQLite3
 
 @Observable
 @MainActor
@@ -10,12 +11,15 @@ class TokenService {
     ]
 
     private var refreshTimer: Timer?
+    // Cached API mode records for time bucket switching without re-reading files
+    var claudeRecords: [TokenRecord] = []
+    var codexRecords: [TokenRecord] = []
 
-    func startAutoRefresh() {
-        fetchAll()
+    func startAutoRefresh(settings: SettingsService? = nil) {
+        fetchAll(settings: settings)
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.fetchAll()
+                self?.fetchAll(settings: settings)
             }
         }
     }
@@ -25,29 +29,94 @@ class TokenService {
         refreshTimer = nil
     }
 
-    func fetchAll() {
+    /// Re-aggregate cached records for a new time bucket (no file I/O)
+    func updateBucket(for toolId: String, bucket: TimeBucket) {
+        guard let idx = tools.firstIndex(where: { $0.id == toolId }) else { return }
+        tools[idx].timeBucket = bucket
+        let records = toolId == "claude" ? claudeRecords : codexRecords
+        guard !records.isEmpty else { return }
+        let agg = aggregateTokens(records, bucket: bucket)
+        tools[idx].inputTokens = agg.inputTokens
+        tools[idx].outputTokens = agg.outputTokens
+        tools[idx].totalTokens = agg.totalTokens
+        if toolId == "claude" {
+            tools[idx].cost = ModelPricing.cost(inputTokens: agg.inputTokens, outputTokens: agg.outputTokens, price: ModelPricing.claudeDefault)
+        } else {
+            tools[idx].cost = ModelPricing.cost(totalTokens: agg.totalTokens, price: ModelPricing.codexDefault)
+        }
+    }
+
+    func fetchAll(settings: SettingsService? = nil) {
         let codexAuthPath = NSHomeDirectory() + "/.codex/auth.json"
         let codexConfigPath = NSHomeDirectory() + "/.codex/config.toml"
         let geminiCredsPath = NSHomeDirectory() + "/.gemini/oauth_creds.json"
+        let claudeMode = settings?.claudeMode ?? .subscription
+        let codexMode = settings?.codexMode ?? .subscription
         Task.detached {
-            let codexUsage = await Self.queryCodexUsageAPI(authPath: codexAuthPath)
+            // Subscription mode fetches
+            let codexSubUsage = codexMode == .subscription ? await Self.queryCodexUsageAPI(authPath: codexAuthPath) : nil
             let codexModel = Self.readCodexModel(configPath: codexConfigPath)
             let claudeHudPath = NSHomeDirectory() + "/.claude/plugins/claude-hud/.usage-cache.json"
-            let claudeUsage = Self.queryClaudeUsageCache(path: claudeHudPath)
+            let claudeSubUsage = claudeMode == .subscription ? Self.queryClaudeUsageCache(path: claudeHudPath) : nil
             let geminiUsage = await Self.queryGeminiUsageAPI(credsPath: geminiCredsPath)
+
+            // API mode fetches
+            let claudeAPIRecords = claudeMode == .api ? Self.fetchClaudeAPIUsage() : []
+            let codexAPIRecords = codexMode == .api ? Self.fetchCodexAPIUsage() : []
+
             await MainActor.run { [weak self] in
                 guard let self else { return }
-                if let usage = codexUsage, let idx = self.tools.firstIndex(where: { $0.id == "codex" }) {
-                    self.tools[idx].usagePercent = usage.usedPercent
-                    self.tools[idx].planName = usage.planType
+
+                // Codex
+                if let idx = self.tools.firstIndex(where: { $0.id == "codex" }) {
                     self.tools[idx].modelName = codexModel
                     self.tools[idx].lastUpdated = Date()
+                    if codexMode == .api {
+                        self.tools[idx].isAPIMode = true
+                        self.codexRecords = codexAPIRecords
+                        let bucket = self.tools[idx].timeBucket
+                        let agg = aggregateTokens(codexAPIRecords, bucket: bucket)
+                        self.tools[idx].totalTokens = agg.totalTokens
+                        self.tools[idx].inputTokens = agg.inputTokens
+                        self.tools[idx].outputTokens = agg.outputTokens
+                        self.tools[idx].cost = ModelPricing.cost(totalTokens: agg.totalTokens, price: ModelPricing.codexDefault)
+                        self.tools[idx].usagePercent = nil
+                    } else {
+                        self.tools[idx].isAPIMode = false
+                        if let usage = codexSubUsage {
+                            self.tools[idx].usagePercent = usage.usedPercent
+                            self.tools[idx].planName = usage.planType
+                        }
+                        self.tools[idx].totalTokens = nil
+                        self.tools[idx].cost = nil
+                    }
                 }
-                if let usage = claudeUsage, let idx = self.tools.firstIndex(where: { $0.id == "claude" }) {
-                    self.tools[idx].usagePercent = usage.fiveHourPercent
-                    self.tools[idx].planName = usage.subscriptionType
+
+                // Claude
+                if let idx = self.tools.firstIndex(where: { $0.id == "claude" }) {
                     self.tools[idx].lastUpdated = Date()
+                    if claudeMode == .api {
+                        self.tools[idx].isAPIMode = true
+                        self.claudeRecords = claudeAPIRecords
+                        let bucket = self.tools[idx].timeBucket
+                        let agg = aggregateTokens(claudeAPIRecords, bucket: bucket)
+                        self.tools[idx].inputTokens = agg.inputTokens
+                        self.tools[idx].outputTokens = agg.outputTokens
+                        self.tools[idx].totalTokens = agg.totalTokens
+                        self.tools[idx].cost = ModelPricing.cost(inputTokens: agg.inputTokens, outputTokens: agg.outputTokens, price: ModelPricing.claudeDefault)
+                        self.tools[idx].usagePercent = nil
+                    } else {
+                        self.tools[idx].isAPIMode = false
+                        if let usage = claudeSubUsage {
+                            self.tools[idx].usagePercent = usage.fiveHourPercent
+                            self.tools[idx].planName = usage.subscriptionType
+                        }
+                        self.tools[idx].totalTokens = nil
+                        self.tools[idx].cost = nil
+                    }
                 }
+
+                // Gemini (always subscription)
                 if let usage = geminiUsage, let idx = self.tools.firstIndex(where: { $0.id == "gemini" }) {
                     self.tools[idx].usagePercent = usage.usedPercent
                     self.tools[idx].planName = usage.tierName
@@ -192,5 +261,52 @@ class TokenService {
         }
 
         return (Int(maxUsed * 100), tierName, maxModelId)
+    }
+
+    // MARK: - API Mode Readers
+
+    nonisolated static func fetchClaudeAPIUsage() -> [TokenRecord] {
+        let metaDir = NSHomeDirectory() + "/.claude/usage-data/session-meta"
+        guard let files = try? FileManager.default.contentsOfDirectory(atPath: metaDir) else { return [] }
+
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        var records: [TokenRecord] = []
+        for file in files where file.hasSuffix(".json") {
+            let path = metaDir + "/" + file
+            guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let startTime = json["start_time"] as? String,
+                  let date = isoFormatter.date(from: startTime) else { continue }
+            let input = json["input_tokens"] as? Int ?? 0
+            let output = json["output_tokens"] as? Int ?? 0
+            records.append(TokenRecord(date: date, inputTokens: input, outputTokens: output, totalTokens: input + output))
+        }
+        return records
+    }
+
+    nonisolated static func fetchCodexAPIUsage() -> [TokenRecord] {
+        let dbPath = NSHomeDirectory() + "/.codex/state_5.sqlite"
+        guard FileManager.default.fileExists(atPath: dbPath) else { return [] }
+
+        var db: OpaquePointer?
+        let uri = "file:" + dbPath + "?immutable=1"
+        guard sqlite3_open_v2(uri, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI, nil) == SQLITE_OK else { return [] }
+        defer { sqlite3_close(db) }
+
+        var stmt: OpaquePointer?
+        let sql = "SELECT tokens_used, created_at FROM threads WHERE tokens_used > 0"
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+        defer { sqlite3_finalize(stmt) }
+
+        var records: [TokenRecord] = []
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            let tokensUsed = Int(sqlite3_column_int64(stmt, 0))
+            let createdAt = Double(sqlite3_column_int64(stmt, 1))
+            let date = Date(timeIntervalSince1970: createdAt)
+            records.append(TokenRecord(date: date, inputTokens: 0, outputTokens: 0, totalTokens: tokensUsed))
+        }
+        return records
     }
 }

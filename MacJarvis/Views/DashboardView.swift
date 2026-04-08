@@ -3,6 +3,7 @@ import SwiftUI
 struct DashboardView: View {
     @Environment(\.theme) var theme
     @Environment(DisplayManager.self) private var displayManager
+    @Environment(SettingsService.self) private var settings
     @State private var showSettings = false
 
     var body: some View {
@@ -54,5 +55,11 @@ struct DashboardView: View {
         }
         .frame(width: size.width, height: size.height)
         .clipped()
+        .onAppear {
+            // Auto-open settings if token not configured
+            if settings.needsTokenSetup {
+                showSettings = true
+            }
+        }
     }
 }
