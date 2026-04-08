@@ -8,6 +8,7 @@ struct MacJarvisApp: App {
     @State private var openClawService = OpenClawService()
     @State private var voiceService = VoiceService()
     @State private var systemMonitor = SystemMonitorService()
+    @State private var terminalSessionService = TerminalSessionService()
 
     var body: some Scene {
         WindowGroup {
@@ -18,11 +19,13 @@ struct MacJarvisApp: App {
                 .environment(openClawService)
                 .environment(voiceService)
                 .environment(systemMonitor)
+                .environment(terminalSessionService)
                 .environment(\.theme, settingsService.currentTheme)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(settingsService.currentTheme.surface)
                 .onDisappear {
                     voiceService.cleanup()
+                    terminalSessionService.stopAll()
                 }
                 .onAppear {
                     let isUITest = ProcessInfo.processInfo.arguments.contains("--uitesting")
