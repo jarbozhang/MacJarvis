@@ -62,7 +62,7 @@ class TokenService {
 
             // API mode fetches
             let claudeAPIRecords = claudeMode == .api ? Self.fetchClaudeAPIUsage() : []
-            let codexAPIRecords = codexMode == .api ? Self.fetchCodexAPIUsage() : []
+            let codexAPIRecords = codexMode == .api ? (Self.fetchOpenClawGatewayUsage() ?? Self.fetchCodexAPIUsage()) : []
 
             await MainActor.run { [weak self] in
                 guard let self else { return }
@@ -265,6 +265,87 @@ class TokenService {
 
     // MARK: - API Mode Readers
 
+    nonisolated static func fetchOpenClawGatewayUsage(days: Int = 3650) -> [TokenRecord]? {
+        guard let openClawPath = findExecutable(named: "openclaw", candidates: [
+            "/opt/homebrew/bin/openclaw",
+            "/usr/local/bin/openclaw",
+            NSHomeDirectory() + "/.local/bin/openclaw",
+        ]) else {
+            return nil
+        }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: openClawPath)
+        process.arguments = ["gateway", "usage-cost", "--days", "\(days)", "--json"]
+
+        var pathEntries = [
+            "/opt/homebrew/bin",
+            "/usr/local/bin",
+            "/usr/bin",
+            "/bin",
+            "/usr/sbin",
+            "/sbin",
+        ]
+        if let nodePath = findExecutable(named: "node", candidates: [
+            "/opt/homebrew/bin/node",
+            "/usr/local/bin/node",
+        ]) {
+            pathEntries.insert(URL(fileURLWithPath: nodePath).deletingLastPathComponent().path, at: 0)
+        }
+        process.environment = [
+            "HOME": NSHomeDirectory(),
+            "PATH": pathEntries.joined(separator: ":"),
+        ]
+
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardError = Pipe()
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+        } catch {
+            return nil
+        }
+
+        guard process.terminationStatus == 0 else { return nil }
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        return parseOpenClawGatewayUsage(data: data)
+    }
+
+    nonisolated static func parseOpenClawGatewayUsage(data: Data) -> [TokenRecord]? {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let daily = json["daily"] as? [[String: Any]] else {
+            return nil
+        }
+
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd"
+
+        return daily.compactMap { row in
+            guard let dateString = row["date"] as? String,
+                  let date = formatter.date(from: dateString) else {
+                return nil
+            }
+
+            let input = intValue(row["input"])
+            let output = intValue(row["output"])
+            let cacheRead = intValue(row["cacheRead"])
+            let cacheWrite = intValue(row["cacheWrite"])
+            let total = intValue(row["totalTokens"], fallback: input + output + cacheRead + cacheWrite)
+
+            return TokenRecord(
+                date: date,
+                inputTokens: input,
+                outputTokens: output,
+                totalTokens: total
+            )
+        }
+    }
+
     nonisolated static func fetchClaudeAPIUsage() -> [TokenRecord] {
         let metaDir = NSHomeDirectory() + "/.claude/usage-data/session-meta"
         guard let files = try? FileManager.default.contentsOfDirectory(atPath: metaDir) else { return [] }
@@ -308,5 +389,36 @@ class TokenService {
             records.append(TokenRecord(date: date, inputTokens: 0, outputTokens: 0, totalTokens: tokensUsed))
         }
         return records
+    }
+
+    private nonisolated static func findExecutable(named name: String, candidates: [String]) -> String? {
+        let fm = FileManager.default
+        for candidate in candidates where fm.isExecutableFile(atPath: candidate) {
+            return candidate
+        }
+
+        for path in (ProcessInfo.processInfo.environment["PATH"] ?? "").split(separator: ":") {
+            let candidate = String(path) + "/" + name
+            if fm.isExecutableFile(atPath: candidate) {
+                return candidate
+            }
+        }
+
+        return nil
+    }
+
+    private nonisolated static func intValue(_ value: Any?, fallback: Int = 0) -> Int {
+        switch value {
+        case let int as Int:
+            return int
+        case let int64 as Int64:
+            return Int(int64)
+        case let double as Double:
+            return Int(double)
+        case let string as String:
+            return Int(string) ?? fallback
+        default:
+            return fallback
+        }
     }
 }

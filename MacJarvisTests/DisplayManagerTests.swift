@@ -19,7 +19,7 @@ final class DisplayManagerTests: XCTestCase {
         XCTAssertTrue(DisplayManager.matchesTargetResolution(width: 730, height: 440))
     }
 
-    func testMatchesTargetResolution_belowLowerBound() {
-        XCTAssertFalse(DisplayManager.matchesTargetResolution(width: 600, height: 400))
+    func testMatchesTargetResolution_smallScreenCandidate() {
+        XCTAssertTrue(DisplayManager.matchesTargetResolution(width: 600, height: 400))
     }
 }

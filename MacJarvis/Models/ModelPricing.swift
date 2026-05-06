@@ -3,15 +3,17 @@ import Foundation
 // MARK: - Time Bucket
 
 enum TimeBucket: String, CaseIterable {
-    case hour = "1H"
+    case all = "ALL"
     case day = "1D"
     case week = "1W"
+    case month = "1M"
 
     var next: TimeBucket {
         switch self {
-        case .hour: return .day
+        case .all: return .day
         case .day: return .week
-        case .week: return .hour
+        case .week: return .month
+        case .month: return .all
         }
     }
 
@@ -19,12 +21,14 @@ enum TimeBucket: String, CaseIterable {
     func windowStart(from now: Date = Date()) -> Date {
         let cal = Calendar.current
         switch self {
-        case .hour:
-            return cal.date(byAdding: .hour, value: -1, to: now)!
+        case .all:
+            return .distantPast
         case .day:
             return cal.startOfDay(for: now)
         case .week:
             return cal.date(byAdding: .day, value: -7, to: cal.startOfDay(for: now))!
+        case .month:
+            return cal.date(byAdding: .day, value: -30, to: cal.startOfDay(for: now))!
         }
     }
 }

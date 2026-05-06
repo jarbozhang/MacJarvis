@@ -9,6 +9,8 @@ class DisplayManager {
     var targetScreen: NSScreen?
 
     private var observer: NSObjectProtocol?
+    private var windowObservers: [NSObjectProtocol] = []
+    private var isSystemFullscreenActive = false
 
     // Detected content size — adapts to screen
     var contentSize: CGSize = CGSize(width: 800, height: 480)
@@ -31,6 +33,7 @@ class DisplayManager {
     }
 
     func startMonitoring() {
+        configureWindowMonitoring()
         checkScreens()
         observer = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
@@ -47,10 +50,77 @@ class DisplayManager {
         if let observer {
             NotificationCenter.default.removeObserver(observer)
         }
+        for windowObserver in windowObservers {
+            NotificationCenter.default.removeObserver(windowObserver)
+        }
         observer = nil
+        windowObservers.removeAll()
+    }
+
+    private func configureWindowMonitoring() {
+        guard windowObservers.isEmpty else { return }
+
+        let center = NotificationCenter.default
+        windowObservers.append(
+            center.addObserver(
+                forName: NSWindow.willEnterFullScreenNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    self?.isSystemFullscreenActive = true
+                }
+            }
+        )
+
+        windowObservers.append(
+            center.addObserver(
+                forName: NSWindow.didEnterFullScreenNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] notification in
+                Task { @MainActor in
+                    self?.isSystemFullscreenActive = true
+                    if let window = notification.object as? NSWindow {
+                        self?.applyImmersiveChrome(to: window, useBorderlessWindow: false)
+                    }
+                }
+            }
+        )
+
+        windowObservers.append(
+            center.addObserver(
+                forName: NSWindow.willExitFullScreenNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] notification in
+                Task { @MainActor in
+                    if let window = notification.object as? NSWindow {
+                        self?.applyWindowedChrome(to: window)
+                    }
+                }
+            }
+        )
+
+        windowObservers.append(
+            center.addObserver(
+                forName: NSWindow.didExitFullScreenNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    self?.isSystemFullscreenActive = false
+                    self?.checkScreens()
+                }
+            }
+        )
     }
 
     private func checkScreens() {
+        if isSystemFullscreenActive || NSApplication.shared.windows.contains(where: { $0.styleMask.contains(.fullScreen) }) {
+            return
+        }
+
         // Prefer external screen (non-built-in)
         let externalScreen = NSScreen.screens.first { screen in
             let name = screen.localizedName
@@ -94,16 +164,14 @@ class DisplayManager {
         guard let targetScreen else { return }
         guard let window = NSApplication.shared.windows.first else { return }
 
-        NSApp.presentationOptions = [.autoHideMenuBar, .autoHideDock]
-        window.styleMask = [.borderless]
+        applyImmersiveChrome(to: window, useBorderlessWindow: true)
         window.setFrame(targetScreen.frame, display: true)
         window.level = .normal
     }
 
     private func restoreWindow(on screen: NSScreen) {
         guard let window = NSApplication.shared.windows.first else { return }
-        NSApp.presentationOptions = []
-        window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+        applyWindowedChrome(to: window)
 
         // Center window on the target screen
         let x = screen.visibleFrame.origin.x + (screen.visibleFrame.width - contentSize.width) / 2
@@ -117,8 +185,27 @@ class DisplayManager {
 
     private func restoreWindowDefault() {
         guard let window = NSApplication.shared.windows.first else { return }
+        applyWindowedChrome(to: window)
+        window.setFrame(CGRect(x: 100, y: 100, width: contentSize.width, height: contentSize.height), display: true)
+    }
+
+    private func applyImmersiveChrome(to window: NSWindow, useBorderlessWindow: Bool) {
+        NSApp.presentationOptions = [.autoHideMenuBar, .autoHideDock]
+        if useBorderlessWindow {
+            window.styleMask = [.borderless]
+        } else {
+            window.styleMask.insert(.fullSizeContentView)
+        }
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.toolbar?.isVisible = false
+    }
+
+    private func applyWindowedChrome(to window: NSWindow) {
         NSApp.presentationOptions = []
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        window.setFrame(CGRect(x: 100, y: 100, width: contentSize.width, height: contentSize.height), display: true)
+        window.titleVisibility = .visible
+        window.titlebarAppearsTransparent = false
+        window.toolbar?.isVisible = true
     }
 }

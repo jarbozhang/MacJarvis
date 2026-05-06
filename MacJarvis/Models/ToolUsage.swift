@@ -13,7 +13,7 @@ struct ToolUsage: Identifiable {
     var usagePercent: Int?   // API-reported usage percentage (e.g. Claude 5-hour)
     var planName: String?    // Subscription plan (e.g. "Max", "Pro")
     var modelName: String?   // Active model (e.g. "gpt-5.4", "gemini-3-flash")
-    var timeBucket: TimeBucket = .day  // Current time dimension for API mode
+    var timeBucket: TimeBucket = .all  // Current time dimension for API mode
     var isAPIMode: Bool = false        // Whether this tool is in API mode
 
     var formattedCost: String {
