@@ -38,7 +38,7 @@ struct DashboardView: View {
                                 .allowsHitTesting(activeTab == .openclaw)
 
                             ForEach([ActiveTab.codex, .gemini, .claude], id: \.self) { tab in
-                                if terminals(for: tab) {
+                                if activatedTabs.contains(tab) {
                                     EmbeddedTerminalView(tab: tab, isActive: activeTab == tab)
                                         .opacity(activeTab == tab ? 1 : 0)
                                         .allowsHitTesting(activeTab == tab)
@@ -75,18 +75,19 @@ struct DashboardView: View {
             if settings.needsTokenSetup {
                 showSettings = true
             }
+            activateTerminalIfNeeded(activeTab)
+        }
+        .onChange(of: activeTab) { _, newTab in
+            activateTerminalIfNeeded(newTab)
         }
     }
 
     /// Track which terminal tabs have been activated (lazy loading)
     @State private var activatedTabs: Set<ActiveTab> = []
 
-    private func terminals(for tab: ActiveTab) -> Bool {
-        if activeTab == tab && !activatedTabs.contains(tab) {
-            DispatchQueue.main.async {
-                activatedTabs.insert(tab)
-            }
+    private func activateTerminalIfNeeded(_ tab: ActiveTab) {
+        if tab.isTerminalTab {
+            activatedTabs.insert(tab)
         }
-        return activatedTabs.contains(tab)
     }
 }

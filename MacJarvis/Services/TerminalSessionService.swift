@@ -1,64 +1,55 @@
 import Foundation
-import SwiftTerm
+import AppKit
 
 @Observable
 @MainActor
 class TerminalSessionService {
-    private var terminals: [ActiveTab: LocalProcessTerminalView] = [:]
+    private var terminals: [ActiveTab: PseudoTerminalView] = [:]
 
-    func getOrCreateTerminal(for tab: ActiveTab) -> LocalProcessTerminalView {
+    func getOrCreateTerminal(for tab: ActiveTab) -> PseudoTerminalView {
         if let existing = terminals[tab] {
             return existing
         }
 
-        let termView = LocalProcessTerminalView(frame: .zero)
-
-        // Find the CLI binary path
-        guard let command = tab.command else { return termView }
-
-        // Set up environment
-        var env = ProcessInfo.processInfo.environment
-        env["TERM"] = "xterm-256color"
-        // Ensure common paths are in PATH
-        let extraPaths = ["/opt/homebrew/bin", "/usr/local/bin"]
-        if let path = env["PATH"] {
-            env["PATH"] = (extraPaths + [path]).joined(separator: ":")
+        let terminal = PseudoTerminalView(frame: .zero)
+        terminal.translatesAutoresizingMaskIntoConstraints = false
+        if let command = tab.command {
+            terminal.start(command: command, arguments: tab.arguments, environment: terminalEnvironment())
         }
 
-        // Find the binary
-        let shellPath = findExecutable(command, in: env["PATH"] ?? "")
-
-        if let shellPath {
-            let args = [shellPath] + tab.arguments
-            termView.startProcess(executable: shellPath, args: args, environment: env.map { "\($0.key)=\($0.value)" }, execName: command)
-        } else {
-            // CLI not found — show error in terminal
-            termView.startProcess(executable: "/bin/echo", args: ["/bin/echo", "Error: '\(command)' not found in PATH"], environment: nil, execName: "echo")
-        }
-
-        terminals[tab] = termView
-        return termView
+        terminals[tab] = terminal
+        return terminal
     }
 
     func stopAll() {
-        for (_, termView) in terminals {
-            // LocalProcessTerminalView terminates its process when deallocated
-            // Force terminate by sending SIGTERM
-            if let pid = termView.shellPid {
-                kill(pid, SIGTERM)
-            }
+        for (_, terminal) in terminals {
+            terminal.stop()
         }
         terminals.removeAll()
     }
 
-    private nonisolated func findExecutable(_ name: String, in pathString: String) -> String? {
-        let paths = pathString.split(separator: ":").map(String.init)
-        for dir in paths {
-            let fullPath = (dir as NSString).appendingPathComponent(name)
-            if FileManager.default.isExecutableFile(atPath: fullPath) {
-                return fullPath
-            }
+    private nonisolated func terminalEnvironment() -> [String: String] {
+        var env = ProcessInfo.processInfo.environment
+        env["TERM"] = "xterm-256color"
+        env["COLORTERM"] = "truecolor"
+        env["CLICOLOR"] = "1"
+        env["HOME"] = NSHomeDirectory()
+
+        let commonPaths = [
+            "/opt/homebrew/bin",
+            "/opt/homebrew/sbin",
+            "/usr/local/bin",
+            "/usr/local/sbin",
+            "/usr/bin",
+            "/bin",
+            "/usr/sbin",
+            "/sbin",
+        ]
+        if let currentPath = env["PATH"] {
+            env["PATH"] = (commonPaths + [currentPath]).joined(separator: ":")
+        } else {
+            env["PATH"] = commonPaths.joined(separator: ":")
         }
-        return nil
+        return env
     }
 }
