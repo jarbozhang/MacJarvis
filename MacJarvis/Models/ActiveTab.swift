@@ -18,9 +18,28 @@ enum ActiveTab: String, CaseIterable {
     var arguments: [String] {
         switch self {
         case .openclaw: return []
-        case .codex: return ["--full-auto"]
-        case .gemini: return ["--yolo"]
-        case .claude: return ["--dangerously-skip-permissions"]
+        case .codex:
+            return [
+                "exec",
+                "--dangerously-bypass-approvals-and-sandbox",
+                "--color",
+                "never",
+                "--json",
+            ]
+        case .gemini:
+            return [
+                "--yolo",
+                "--output-format",
+                "text",
+                "--prompt",
+            ]
+        case .claude:
+            return [
+                "--print",
+                "--dangerously-skip-permissions",
+                "--output-format",
+                "text",
+            ]
         }
     }
 

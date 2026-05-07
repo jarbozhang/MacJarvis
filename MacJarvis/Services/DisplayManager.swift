@@ -16,25 +16,29 @@ class DisplayManager {
     var contentSize: CGSize = CGSize(width: 800, height: 480)
 
     // Threshold: screens ≤ this width (logical points) trigger fullscreen
-    nonisolated static let fullscreenMaxWidth: CGFloat = 1024
+    nonisolated static let fullscreenMaxWidth: CGFloat = 1280
+
+    // Preferred window width on larger displays
+    nonisolated static let preferredWindowWidth: CGFloat = 1280
 
     // Aspect ratio for windowed mode (5:3 matches 800:480)
     nonisolated static let aspectRatio: CGFloat = 5.0 / 3.0
 
-    // Window fills this fraction of screen in windowed mode
-    nonisolated static let windowFillFraction: CGFloat = 0.8
+    // Maximum fraction of screen width used when 1280 does not fit
+    nonisolated static let windowMaxFillFraction: CGFloat = 0.9
 
     // Keep backward compatibility for tests
     nonisolated static let targetWidth: CGFloat = 800
     nonisolated static let targetHeight: CGFloat = 480
     nonisolated static func matchesTargetResolution(width: CGFloat, height: CGFloat) -> Bool {
-        // Legacy: treat as fullscreen candidate if ≤1024
-        width <= fullscreenMaxWidth + fullscreenMaxWidth * 0.10
+        // Legacy: treat as fullscreen candidate if ≤1280
+        width <= fullscreenMaxWidth
     }
 
     func startMonitoring() {
         configureWindowMonitoring()
         checkScreens()
+        scheduleStartupWindowCorrections()
         observer = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
@@ -116,11 +120,16 @@ class DisplayManager {
         )
     }
 
-    private func checkScreens() {
-        if isSystemFullscreenActive || NSApplication.shared.windows.contains(where: { $0.styleMask.contains(.fullScreen) }) {
-            return
+    private func scheduleStartupWindowCorrections() {
+        for delayMs in [100, 400, 900, 1600] {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(delayMs))
+                self.checkScreens(forceWindowedCorrection: true)
+            }
         }
+    }
 
+    private func checkScreens(forceWindowedCorrection: Bool = false) {
         // Prefer external screen (non-built-in)
         let externalScreen = NSScreen.screens.first { screen in
             let name = screen.localizedName
@@ -133,31 +142,43 @@ class DisplayManager {
             let width = external.frame.width  // logical points
 
             if width <= Self.fullscreenMaxWidth {
+                if isSystemFullscreenActive || NSApplication.shared.windows.contains(where: { $0.styleMask.contains(.fullScreen) }) {
+                    return
+                }
+
                 // Small external display → fullscreen
                 isFullscreen = true
                 contentSize = CGSize(width: external.frame.width, height: external.frame.height)
                 moveWindowToTarget()
             } else {
-                // Large external display → windowed, sized to 80% with 5:3 ratio
+                exitSystemFullscreenIfNeeded()
+
+                // Large external display → windowed, held around 1280 with 5:3 ratio
                 isFullscreen = false
-                let windowWidth = external.visibleFrame.width * Self.windowFillFraction
+                let windowWidth = Self.windowedWidth(for: external.visibleFrame)
                 let windowHeight = windowWidth / Self.aspectRatio
                 contentSize = CGSize(width: windowWidth, height: windowHeight)
-                restoreWindow(on: external)
+                restoreWindow(on: external, force: forceWindowedCorrection)
             }
         } else {
+            exitSystemFullscreenIfNeeded()
+
             // No external screen — use main screen in windowed mode
             targetScreen = nil
             isExternalScreenConnected = false
             isFullscreen = false
 
             if let main = NSScreen.main {
-                let windowWidth = min(main.visibleFrame.width * Self.windowFillFraction, 1600)
+                let windowWidth = Self.windowedWidth(for: main.visibleFrame)
                 let windowHeight = windowWidth / Self.aspectRatio
                 contentSize = CGSize(width: windowWidth, height: windowHeight)
             }
-            restoreWindowDefault()
+            restoreWindowDefault(force: forceWindowedCorrection)
         }
+    }
+
+    private nonisolated static func windowedWidth(for visibleFrame: CGRect) -> CGFloat {
+        min(preferredWindowWidth, visibleFrame.width * windowMaxFillFraction)
     }
 
     func moveWindowToTarget() {
@@ -169,8 +190,11 @@ class DisplayManager {
         window.level = .normal
     }
 
-    private func restoreWindow(on screen: NSScreen) {
+    private func restoreWindow(on screen: NSScreen, force: Bool = true) {
         guard let window = NSApplication.shared.windows.first else { return }
+        if !force && window.frame.width <= Self.preferredWindowWidth + 24 {
+            return
+        }
         applyWindowedChrome(to: window)
 
         // Center window on the target screen
@@ -183,10 +207,21 @@ class DisplayManager {
         restoreWindowDefault()
     }
 
-    private func restoreWindowDefault() {
+    private func restoreWindowDefault(force: Bool = true) {
         guard let window = NSApplication.shared.windows.first else { return }
+        if !force && window.frame.width <= Self.preferredWindowWidth + 24 {
+            return
+        }
         applyWindowedChrome(to: window)
         window.setFrame(CGRect(x: 100, y: 100, width: contentSize.width, height: contentSize.height), display: true)
+    }
+
+    private func exitSystemFullscreenIfNeeded() {
+        guard let window = NSApplication.shared.windows.first else { return }
+        if window.styleMask.contains(.fullScreen) {
+            isSystemFullscreenActive = false
+            window.toggleFullScreen(nil)
+        }
     }
 
     private func applyImmersiveChrome(to window: NSWindow, useBorderlessWindow: Bool) {

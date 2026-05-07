@@ -102,26 +102,10 @@ struct SettingsView: View {
 
             sectionHeader("OPENCLAW CONNECTION")
 
-            // Token missing warning
-            if settings.needsTokenSetup {
-                HStack(spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(theme.error)
-                        .font(.system(size: 10))
-                    Text("请填写 Token 并选择 Agent 后连接")
-                        .font(AppTheme.monoFont(size: 9))
-                        .foregroundColor(theme.error)
-                }
-                .padding(8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(theme.error.opacity(0.1))
-                .overlay(Rectangle().stroke(theme.error.opacity(0.3), lineWidth: 1))
-            }
-
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("HOST").font(AppTheme.labelFont(size: 7)).foregroundColor(theme.onSurfaceVariant)
-                    TextField("127.0.0.1", text: $settings.openClawHost)
+                    TextField(SettingsService.defaultOpenClawHost, text: $settings.openClawHost)
                         .textFieldStyle(.plain)
                         .font(AppTheme.monoFont(size: 10))
                         .foregroundColor(theme.onSurface)
@@ -130,7 +114,7 @@ struct SettingsView: View {
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     Text("PORT").font(AppTheme.labelFont(size: 7)).foregroundColor(theme.onSurfaceVariant)
-                    TextField("18789", value: $settings.openClawPort, format: .number)
+                    TextField("\(SettingsService.defaultOpenClawPort)", value: $settings.openClawPort, format: .number)
                         .textFieldStyle(.plain)
                         .font(AppTheme.monoFont(size: 10))
                         .foregroundColor(theme.onSurface)
@@ -143,7 +127,7 @@ struct SettingsView: View {
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("TOKEN").font(AppTheme.labelFont(size: 7)).foregroundColor(theme.onSurfaceVariant)
-                    SecureField("optional", text: $settings.openClawToken)
+                    SecureField("empty = no auth", text: $settings.openClawToken)
                         .textFieldStyle(.plain)
                         .font(AppTheme.monoFont(size: 10))
                         .foregroundColor(theme.onSurface)
@@ -151,8 +135,8 @@ struct SettingsView: View {
                         .background(theme.surfaceContainerLowest)
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("AGENT").font(AppTheme.labelFont(size: 7)).foregroundColor(theme.onSurfaceVariant)
-                    TextField("main", text: $settings.openClawAgent)
+                    Text("AGENT ID").font(AppTheme.labelFont(size: 7)).foregroundColor(theme.onSurfaceVariant)
+                    TextField(SettingsService.defaultOpenClawAgent, text: $settings.openClawAgent)
                         .textFieldStyle(.plain)
                         .font(AppTheme.monoFont(size: 10))
                         .foregroundColor(theme.onSurface)
@@ -163,10 +147,16 @@ struct SettingsView: View {
             }
 
             Button {
-                let h = settings.openClawHost
+                let h = settings.openClawHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ? SettingsService.defaultOpenClawHost
+                    : settings.openClawHost.trimmingCharacters(in: .whitespacesAndNewlines)
                 let p = settings.openClawPort
-                let t = settings.openClawToken
-                let a = settings.openClawAgent
+                let t = settings.openClawToken.trimmingCharacters(in: .whitespacesAndNewlines)
+                let agentText = settings.openClawAgent.trimmingCharacters(in: .whitespacesAndNewlines)
+                let a = agentText.isEmpty ? SettingsService.defaultOpenClawAgent : agentText
+                settings.openClawHost = h
+                settings.openClawToken = t
+                settings.openClawAgent = a
                 Task {
                     await clawService.connect(host: h, port: p, token: t, agent: a)
                 }

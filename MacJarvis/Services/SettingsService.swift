@@ -8,6 +8,10 @@ enum UsageMode: String, CaseIterable {
 @Observable
 @MainActor
 class SettingsService {
+    static let defaultOpenClawHost = "127.0.0.1"
+    static let defaultOpenClawPort = 18789
+    static let defaultOpenClawAgent = "main"
+
     var currentTheme: AppTheme {
         didSet { UserDefaults.standard.set(currentTheme.rawValue, forKey: "currentTheme") }
     }
@@ -33,7 +37,7 @@ class SettingsService {
     var openClawToken: String = "" {
         didSet { UserDefaults.standard.set(openClawToken, forKey: "openClawToken") }
     }
-    var openClawAgent: String = "main" {
+    var openClawAgent: String = SettingsService.defaultOpenClawAgent {
         didSet { UserDefaults.standard.set(openClawAgent, forKey: "openClawAgent") }
     }
 
@@ -50,7 +54,7 @@ class SettingsService {
 
     /// True when token has never been configured — UI should prompt user
     var needsTokenSetup: Bool {
-        openClawToken.isEmpty
+        false
     }
 
     init() {
@@ -62,15 +66,16 @@ class SettingsService {
         }
         // Default host/port — only use stored value if it was explicitly saved
         if UserDefaults.standard.object(forKey: "openClawHost") != nil {
-            self.openClawHost = UserDefaults.standard.string(forKey: "openClawHost") ?? "127.0.0.1"
+            let storedHost = UserDefaults.standard.string(forKey: "openClawHost")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            self.openClawHost = storedHost.isEmpty ? Self.defaultOpenClawHost : storedHost
         } else {
-            self.openClawHost = "127.0.0.1"
+            self.openClawHost = Self.defaultOpenClawHost
         }
         if UserDefaults.standard.object(forKey: "openClawPort") != nil {
             let storedPort = UserDefaults.standard.integer(forKey: "openClawPort")
-            self.openClawPort = storedPort > 0 ? storedPort : 18789
+            self.openClawPort = storedPort > 0 ? storedPort : Self.defaultOpenClawPort
         } else {
-            self.openClawPort = 18789
+            self.openClawPort = Self.defaultOpenClawPort
         }
         if UserDefaults.standard.object(forKey: "codexDailyBudget") != nil {
             codexDailyBudget = UserDefaults.standard.integer(forKey: "codexDailyBudget")
@@ -82,10 +87,11 @@ class SettingsService {
             geminiDailyBudget = UserDefaults.standard.integer(forKey: "geminiDailyBudget")
         }
         if let token = UserDefaults.standard.string(forKey: "openClawToken") {
-            openClawToken = token
+            let cleanedToken = token.trimmingCharacters(in: .whitespacesAndNewlines)
+            openClawToken = ["xxxx", "optional", "none"].contains(cleanedToken.lowercased()) ? "" : cleanedToken
         }
         if let agent = UserDefaults.standard.string(forKey: "openClawAgent"), !agent.isEmpty {
-            openClawAgent = agent
+            openClawAgent = agent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? Self.defaultOpenClawAgent : agent
         }
         if UserDefaults.standard.object(forKey: "enableTTS") != nil {
             enableTTS = UserDefaults.standard.bool(forKey: "enableTTS")

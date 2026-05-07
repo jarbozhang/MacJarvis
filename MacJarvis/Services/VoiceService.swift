@@ -31,12 +31,23 @@ class VoiceService {
     var audioLevel: Float = 0.0
     var isModelLoaded: Bool = false
     var modelLoadProgress: String = ""
+    var shouldAskToDownloadModel: Bool = false
+    var isLoadingModel: Bool {
+        isModelLoading
+    }
+    var isVoiceModelUnavailable: Bool {
+        modelLoadProgress == "MODEL MISSING" || modelLoadProgress == "LOAD FAILED"
+    }
 
     private var isModelLoading: Bool = false
     private var whisperKit: WhisperKit?
     private var audioEngine: AVAudioEngine?
     private var audioBuffer: [Float] = []
     private let synthesizer = AVSpeechSynthesizer()
+    private let modelName = "openai_whisper-base"
+    private let modelRepo = "argmaxinc/whisperkit-coreml"
+    private let promptedForModelDownloadKey = "MacJarvis.promptedForVoiceModelDownload"
+    private let modelFolderPathKey = "MacJarvis.voiceModelFolderPath"
 
     var canRecord: Bool {
         isModelLoaded && !isTranscribing
@@ -51,6 +62,33 @@ class VoiceService {
     // MARK: - Model Loading
 
     func loadModel() {
+        loadModel(allowDownload: false)
+    }
+
+    func prepareForRecording() {
+        if isModelLoaded || isModelLoading || shouldAskToDownloadModel || isVoiceModelUnavailable { return }
+        loadModel()
+    }
+
+    func promptForModelDownload() {
+        shouldAskToDownloadModel = true
+        recordingError = ""
+    }
+
+    func downloadModel() {
+        UserDefaults.standard.set(true, forKey: promptedForModelDownloadKey)
+        shouldAskToDownloadModel = false
+        loadModel(allowDownload: true)
+    }
+
+    func skipModelDownload() {
+        UserDefaults.standard.set(true, forKey: promptedForModelDownloadKey)
+        shouldAskToDownloadModel = false
+        isModelLoading = false
+        modelLoadProgress = "MODEL MISSING"
+    }
+
+    private func loadModel(allowDownload: Bool) {
         guard !isModelLoaded, !isModelLoading else {
             logToFile("[VoiceService] Model already loaded or loading, skipping")
             return
@@ -60,13 +98,25 @@ class VoiceService {
         logToFile("[VoiceService] Starting model load...")
 
         Task.detached {
-            let localModelDir = NSHomeDirectory() + "/Documents/huggingface/models/argmaxinc/whisperkit-coreml/openai_whisper-base"
-            let hasLocalModel = FileManager.default.fileExists(atPath: localModelDir + "/config.json")
-            logToFile("[VoiceService] Init WhisperKit, localModel=\(hasLocalModel)")
+            let appSupportURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+                .first?
+                .appendingPathComponent("MacJarvis", isDirectory: true)
+            let modelsBaseURL = appSupportURL?.appendingPathComponent("models", isDirectory: true)
+            let savedModelDir = UserDefaults.standard.string(forKey: self.modelFolderPathKey).flatMap {
+                $0.contains("/Documents/") ? nil : $0
+            }
+            let legacyModelDir = modelsBaseURL?
+                .appendingPathComponent(self.modelRepo, isDirectory: true)
+                .appendingPathComponent(self.modelName, isDirectory: true)
+                .path
+            let localModelDir = [savedModelDir, legacyModelDir]
+                .compactMap { $0 }
+                .first { self.hasModelConfig(at: $0) }
+            logToFile("[VoiceService] Init WhisperKit, localModel=\(localModelDir ?? "none"), allowDownload=\(allowDownload)")
 
             do {
                 let kit: WhisperKit
-                if hasLocalModel {
+                if let localModelDir {
                     kit = try await WhisperKit(
                         modelFolder: localModelDir,
                         computeOptions: ModelComputeOptions(audioEncoderCompute: .cpuAndNeuralEngine, textDecoderCompute: .cpuAndNeuralEngine),
@@ -76,10 +126,14 @@ class VoiceService {
                         load: true,
                         download: false
                     )
-                } else {
+                    UserDefaults.standard.set(localModelDir, forKey: self.modelFolderPathKey)
+                } else if allowDownload, let modelsBaseURL {
+                    try FileManager.default.createDirectory(at: modelsBaseURL, withIntermediateDirectories: true)
                     await MainActor.run { self.modelLoadProgress = "DOWNLOADING..." }
                     kit = try await WhisperKit(
-                        model: "openai_whisper-base",
+                        model: self.modelName,
+                        downloadBase: modelsBaseURL,
+                        modelRepo: self.modelRepo,
                         computeOptions: ModelComputeOptions(audioEncoderCompute: .cpuAndNeuralEngine, textDecoderCompute: .cpuAndNeuralEngine),
                         verbose: false,
                         logLevel: .error,
@@ -87,6 +141,20 @@ class VoiceService {
                         load: true,
                         download: true
                     )
+                    if let modelFolder = kit.modelFolder?.path {
+                        UserDefaults.standard.set(modelFolder, forKey: self.modelFolderPathKey)
+                        logToFile("[VoiceService] Downloaded model folder: \(modelFolder)")
+                    }
+                } else {
+                    let hasPrompted = UserDefaults.standard.bool(forKey: self.promptedForModelDownloadKey)
+                    await MainActor.run {
+                        self.isModelLoading = false
+                        self.modelLoadProgress = "MODEL MISSING"
+                        self.recordingError = "MODEL MISSING"
+                        self.shouldAskToDownloadModel = !hasPrompted
+                    }
+                    logToFile("[VoiceService] Model missing, prompt=\(!hasPrompted)")
+                    return
                 }
                 logToFile("[VoiceService] WhisperKit loaded OK")
                 await MainActor.run {
@@ -100,9 +168,14 @@ class VoiceService {
                 await MainActor.run {
                     self.isModelLoading = false
                     self.modelLoadProgress = "LOAD FAILED"
+                    self.recordingError = "LOAD FAILED"
                 }
             }
         }
+    }
+
+    private nonisolated func hasModelConfig(at path: String) -> Bool {
+        FileManager.default.fileExists(atPath: URL(fileURLWithPath: path).appendingPathComponent("config.json").path)
     }
 
     // MARK: - Recording
@@ -110,9 +183,10 @@ class VoiceService {
     var recordingError: String = ""
 
     func startRecording() {
+        prepareForRecording()
         guard canRecord else {
             if !isModelLoaded {
-                recordingError = "MODEL LOADING..."
+                recordingError = isModelLoading ? "MODEL LOADING..." : (modelLoadProgress.isEmpty ? "MODEL MISSING" : modelLoadProgress)
             } else if isTranscribing {
                 recordingError = "BUSY TRANSCRIBING"
             }

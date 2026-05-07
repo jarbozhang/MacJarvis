@@ -18,34 +18,28 @@ struct DashboardView: View {
                     HeaderView(showSettings: $showSettings)
 
                     HStack(spacing: 8 * scale) {
-                        // Left column
-                        VStack(spacing: 8 * scale) {
-                            CoreStatusView()
-                            HardwareStatsView()
-                        }
-                        .frame(width: sideColumnWidth)
-                        .fadeInUp(delay: 0)
-
-                        // Middle column
-                        TokenColumnView()
-                            .frame(width: sideColumnWidth)
-                            .fadeInUp(delay: 0.15)
-
-                        // Right column — switches based on active tab
-                        ZStack {
-                            TerminalLogView()
-                                .opacity(activeTab == .openclaw ? 1 : 0)
-                                .allowsHitTesting(activeTab == .openclaw)
-
-                            ForEach([ActiveTab.codex, .gemini, .claude], id: \.self) { tab in
-                                if activatedTabs.contains(tab) {
-                                    EmbeddedTerminalView(tab: tab, isActive: activeTab == tab)
-                                        .opacity(activeTab == tab ? 1 : 0)
-                                        .allowsHitTesting(activeTab == tab)
-                                }
+                        if activeTab == .openclaw {
+                            // Left column
+                            VStack(spacing: 8 * scale) {
+                                CoreStatusView()
+                                HardwareStatsView()
                             }
+                            .frame(width: sideColumnWidth)
+                            .fadeInUp(delay: 0)
+
+                            // Middle column
+                            TokenColumnView()
+                                .frame(width: sideColumnWidth)
+                                .fadeInUp(delay: 0.15)
+
+                            TerminalLogView()
+                                .fadeInUp(delay: 0.3)
+                        } else {
+                            EmbeddedTerminalView(tab: activeTab, isActive: true)
+                                .id(activeTab)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .fadeInUp(delay: 0.1)
                         }
-                        .fadeInUp(delay: 0.3)
                     }
                     .padding(8 * scale)
 
@@ -72,9 +66,6 @@ struct DashboardView: View {
         }
         .clipped()
         .onAppear {
-            if settings.needsTokenSetup {
-                showSettings = true
-            }
             activateTerminalIfNeeded(activeTab)
         }
         .onChange(of: activeTab) { _, newTab in

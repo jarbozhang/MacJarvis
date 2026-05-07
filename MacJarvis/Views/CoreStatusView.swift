@@ -12,9 +12,6 @@ struct CoreStatusView: View {
     private let blinkTimer = Timer.publish(every: 4, on: .main, in: .common).autoconnect()
 
     private var statusText: String {
-        if clawService.status == .running && settings.needsTokenSetup {
-            return "NO TOKEN SET"
-        }
         return clawService.status == .running ? "OPENCLAW ACTIVE" : "OPENCLAW \(clawService.status.label)"
     }
 
@@ -35,7 +32,7 @@ struct CoreStatusView: View {
             LobsterShape(isBlinking: isBlinking)
                 .frame(width: 64 * scale, height: 64 * scale)
                 .neonGlow(color: theme.primary)
-                .opacity(clawService.status == .running && !settings.needsTokenSetup ? 1 : 0.4)
+                .opacity(clawService.status == .running ? 1 : 0.4)
                 .floating(amplitude: 4, duration: 1.5)
             .onReceive(blinkTimer) { _ in
                 guard clawService.status == .running else { return }
@@ -48,7 +45,7 @@ struct CoreStatusView: View {
             Text(statusText)
                 .font(AppTheme.headlineFont(size: 10 * scale))
                 .tracking(1 * scale)
-                .foregroundColor(clawService.status == .running && settings.needsTokenSetup ? theme.error : theme.primary)
+                .foregroundColor(theme.primary)
 
             Text(uptimeText)
                 .font(AppTheme.monoFont(size: 8 * scale))

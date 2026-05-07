@@ -23,7 +23,7 @@ struct EmbeddedTerminalView: NSViewRepresentable {
     func updateNSView(_ nsView: NSView, context: Context) {
         guard isActive, let terminal = nsView.subviews.first as? PseudoTerminalView else { return }
         DispatchQueue.main.async {
-            nsView.window?.makeFirstResponder(terminal)
+            terminal.focusInput()
         }
     }
 }

@@ -39,7 +39,6 @@ struct MacJarvisApp: App {
                     } else {
                         displayManager.startMonitoring()
                         tokenService.startAutoRefresh(settings: settingsService)
-                        voiceService.loadModel()
                         systemMonitor.startMonitoring()
 
                         // Auto-connect to OpenClaw using saved settings

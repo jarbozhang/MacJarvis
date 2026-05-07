@@ -9,7 +9,15 @@ struct BottomNavBar: View {
         HStack(spacing: 0) {
             navItem(
                 tab: .openclaw,
-                icon: { LobsterShape(bodyColor: theme.surface).frame(width: 20 * scale, height: 20 * scale) },
+                icon: {
+                    let isActive = activeTab == .openclaw
+                    LobsterShape(
+                        bodyColor: isActive ? theme.surface : theme.onSurface.opacity(0.5),
+                        antennaColor: isActive ? theme.surface : theme.onSurface.opacity(0.5),
+                        eyeHighlightColor: isActive ? theme.primary : theme.secondary
+                    )
+                    .frame(width: 20 * scale, height: 20 * scale)
+                },
                 label: "OPENCLAW")
             navItem(
                 tab: .codex,
@@ -27,8 +35,9 @@ struct BottomNavBar: View {
         .frame(height: 48 * scale)
         .background(theme.surface.opacity(0.7))
         .pixelGrid()
+        .clipped()
         .overlay(alignment: .top) {
-            Rectangle().fill(theme.surfaceContainerHigh).frame(height: 1)
+            Rectangle().fill(theme.primary.opacity(0.25)).frame(height: 1)
         }
     }
 
@@ -42,11 +51,14 @@ struct BottomNavBar: View {
                     .font(AppTheme.headlineFont(size: 8 * scale))
                     .textCase(.uppercase)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 4 * scale)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .foregroundColor(activeTab == tab ? theme.surface : theme.onSurface.opacity(0.5))
             .background(activeTab == tab ? theme.primary : Color.clear)
+            .contentShape(Rectangle())
         }
+        .frame(maxWidth: .infinity)
+        .frame(height: 48 * scale)
+        .contentShape(Rectangle())
         .buttonStyle(.plain)
     }
 }

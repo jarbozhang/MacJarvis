@@ -12,6 +12,10 @@ struct TerminalLogView: View {
     @State private var isPTTActive = false
     @State private var pttDelayTask: Task<Void, Never>?
 
+    private var displayMessages: [ChatMessage] {
+        clawService.mirroredMessages.isEmpty ? clawService.messages : clawService.mirroredMessages
+    }
+
     private let timeFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "HH:mm:ss"
@@ -26,7 +30,7 @@ struct TerminalLogView: View {
                     .fill(theme.primary)
                     .frame(width: 6 * scale, height: 6 * scale)
 
-                Text("Logs_Live :: Extended_Readout_v4")
+                Text(headerTitle)
                     .font(AppTheme.monoFont(size: 10 * scale))
                     .tracking(2 * scale)
                     .textCase(.uppercase)
@@ -41,14 +45,19 @@ struct TerminalLogView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 4) {
-                        ForEach(clawService.messages) { msg in
+                        ForEach(displayMessages) { msg in
                             terminalLine(for: msg)
                                 .id(msg.id)
                         }
                     }
                 }
-                .onChange(of: clawService.messages.count) {
-                    if let last = clawService.messages.last {
+                .onChange(of: displayMessages.count) {
+                    if let last = displayMessages.last {
+                        withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
+                    }
+                }
+                .onChange(of: displayMessages.last?.content) {
+                    if let last = displayMessages.last {
                         withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
                     }
                 }
@@ -103,6 +112,10 @@ struct TerminalLogView: View {
                             pttDelayTask = Task { @MainActor in
                                 try? await Task.sleep(for: .milliseconds(300))
                                 guard !Task.isCancelled else { return }
+                                if voiceService.isVoiceModelUnavailable {
+                                    voiceService.promptForModelDownload()
+                                    return
+                                }
                                 if !voiceService.isRecording && !voiceService.isTranscribing {
                                     isPTTActive = true
                                     voiceService.startRecording()
@@ -121,7 +134,11 @@ struct TerminalLogView: View {
                                 pttDelayTask?.cancel()
                                 pttDelayTask = nil
                                 isPTTActive = false
-                                isInputMode = true
+                                if voiceService.isVoiceModelUnavailable {
+                                    voiceService.promptForModelDownload()
+                                } else {
+                                    isInputMode = true
+                                }
                             }
                         }
                 )
@@ -137,6 +154,16 @@ struct TerminalLogView: View {
         .padding(16 * scale)
         .background(theme.surfaceContainerLowest.opacity(0.6))
         .overlay(Rectangle().stroke(theme.outlineVariant.opacity(0.2), lineWidth: 1))
+        .alert("Download voice model?", isPresented: Bindable(voiceService).shouldAskToDownloadModel) {
+            Button("Download") {
+                voiceService.downloadModel()
+            }
+            Button("Not Now", role: .cancel) {
+                voiceService.skipModelDownload()
+            }
+        } message: {
+            Text("MacJarvis needs the Whisper voice model before push-to-talk can transcribe audio. The model will be saved under Application Support, not Documents.")
+        }
         .onChange(of: clawService.isStreaming) { oldValue, newValue in
             if oldValue == true && newValue == false && settings.enableTTS {
                 if let last = clawService.messages.last, last.role == .assistant, !last.content.isEmpty {
@@ -144,6 +171,16 @@ struct TerminalLogView: View {
                 }
             }
         }
+    }
+
+    private var headerTitle: String {
+        if let name = clawService.mirroredSessionName, !name.isEmpty {
+            return "Session_Mirror :: \(name)"
+        }
+        if let key = clawService.mirroredSessionKey, !key.isEmpty {
+            return "Session_Mirror :: \(key)"
+        }
+        return clawService.mirrorStatusText
     }
 
     private var commandButtonColor: Color {
@@ -156,7 +193,7 @@ struct TerminalLogView: View {
         if voiceService.isRecording { return "LISTENING..." }
         if voiceService.isTranscribing { return "TRANSCRIBING..." }
         if !voiceService.recordingError.isEmpty { return voiceService.recordingError }
-        if !voiceService.isModelLoaded { return voiceService.modelLoadProgress.isEmpty ? "LOADING MODEL..." : voiceService.modelLoadProgress }
+        if voiceService.isLoadingModel { return voiceService.modelLoadProgress.isEmpty ? "LOADING MODEL..." : voiceService.modelLoadProgress }
         return "NEW COMMAND"
     }
 
