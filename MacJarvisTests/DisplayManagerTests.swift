@@ -11,6 +11,14 @@ final class DisplayManagerTests: XCTestCase {
         XCTAssertTrue(DisplayManager.matchesTargetResolution(width: 860, height: 500))
     }
 
+    func testShouldUseFullscreen_atTargetSmallScreenWidth() {
+        XCTAssertTrue(DisplayManager.shouldUseFullscreen(forWidth: 1280))
+    }
+
+    func testShouldUseFullscreen_aboveTargetSmallScreenWidth() {
+        XCTAssertFalse(DisplayManager.shouldUseFullscreen(forWidth: 1281))
+    }
+
     func testMatchesTargetResolution_outsideTolerance() {
         XCTAssertFalse(DisplayManager.matchesTargetResolution(width: 1920, height: 1080))
     }

@@ -66,6 +66,9 @@ struct DashboardView: View {
         }
         .clipped()
         .onAppear {
+            if settings.needsTokenSetup {
+                showSettings = true
+            }
             activateTerminalIfNeeded(activeTab)
         }
         .onChange(of: activeTab) { _, newTab in

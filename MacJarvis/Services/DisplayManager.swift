@@ -15,7 +15,7 @@ class DisplayManager {
     // Detected content size — adapts to screen
     var contentSize: CGSize = CGSize(width: 800, height: 480)
 
-    // Threshold: screens ≤ this width (logical points) trigger fullscreen
+    // Threshold: screens ≤ this width (logical points) use borderless immersive mode.
     nonisolated static let fullscreenMaxWidth: CGFloat = 1280
 
     // Preferred window width on larger displays
@@ -31,7 +31,10 @@ class DisplayManager {
     nonisolated static let targetWidth: CGFloat = 800
     nonisolated static let targetHeight: CGFloat = 480
     nonisolated static func matchesTargetResolution(width: CGFloat, height: CGFloat) -> Bool {
-        // Legacy: treat as fullscreen candidate if ≤1280
+        shouldUseFullscreen(forWidth: width)
+    }
+
+    nonisolated static func shouldUseFullscreen(forWidth width: CGFloat) -> Bool {
         width <= fullscreenMaxWidth
     }
 
@@ -141,7 +144,7 @@ class DisplayManager {
             isExternalScreenConnected = true
             let width = external.frame.width  // logical points
 
-            if width <= Self.fullscreenMaxWidth {
+            if Self.shouldUseFullscreen(forWidth: width) {
                 if isSystemFullscreenActive || NSApplication.shared.windows.contains(where: { $0.styleMask.contains(.fullScreen) }) {
                     return
                 }
