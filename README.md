@@ -2,6 +2,8 @@
 
 MacJarvis 是一个原生 macOS SwiftUI 状态墙，用来在 1024 或 1280 宽度的小屏上常亮展示大 agent 可用状态、token 消耗和本机负载。
 
+![MacJarvis agent status wall](docs/images/status-wall.png)
+
 当前默认界面围绕“agent 是否正常工作”组织：
 
 - 主读数：已安装大 agent 的全局状态，优先显示正常、运行中、卡住、离线或错误
@@ -14,7 +16,7 @@ MacJarvis 是一个原生 macOS SwiftUI 状态墙，用来在 1024 或 1280 宽�
 
 - Codex / Claude / Gemini 本地使用数据采集
 - OpenClaw 网关连接、健康检测、活动状态和消耗汇总
-- Hermes 可选 provider 入口；未确认本地 contract 时按未安装处理
+- Hermes 本地自动发现、gateway 状态读取和 SQLite 消耗汇总
 - Push-to-Talk 语音输入，WhisperKit 本地转写
 - CPU / 内存 / 磁盘监控
 - OpenClaw 连接参数和每日预算设置持久化
@@ -37,6 +39,7 @@ MacJarvis 不走云端统计接口，直接读取本机数据：
 - Claude: `~/.claude/plugins/claude-hud/.usage-cache.json`
 - Gemini: `~/.gemini/tmp/*/chats/session-*.json`
 - OpenClaw gateway usage: `openclaw gateway usage-cost --json`
+- Hermes: `~/.hermes/gateway_state.json`、`~/.hermes/gateway.pid`、`~/.hermes/state.db`
 
 说明：
 
