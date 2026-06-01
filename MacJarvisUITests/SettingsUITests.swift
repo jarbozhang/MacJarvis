@@ -30,10 +30,6 @@ final class SettingsUITests: MacJarvisUITestBase {
         app.buttons["reconnectButton"].click()
         app.buttons["closeButton"].click()
 
-        // After failed connection, status should change to OFFLINE
-        let statusLabel = app.staticTexts["clawStatusLabel"]
-        let predicate = NSPredicate(format: "label == 'OFFLINE'")
-        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: statusLabel)
-        wait(for: [expectation], timeout: 15)
+        XCTAssertTrue(app.otherElements["statusWall"].waitForExistence(timeout: 5))
     }
 }

@@ -1,21 +1,24 @@
 # MacJarvis
 
-MacJarvis 是一个原生 macOS SwiftUI dashboard，用来把本地 AI 工具用量、OpenClaw 对话入口和机器状态集中展示在一块 800×480 外接小屏上。
+MacJarvis 是一个原生 macOS SwiftUI 状态墙，用来在 1024 或 1280 宽度的小屏上常亮展示大 agent 可用状态、token 消耗和本机负载。
 
-当前界面已经是三栏 cockpit 布局：
+当前默认界面围绕“agent 是否正常工作”组织：
 
-- 左列：OpenClaw 状态、运行时长、磁盘占用
-- 中列：Codex / Gemini / Claude 用量卡片
-- 右列：终端风格消息流、文本输入、Push-to-Talk
+- 主读数：已安装大 agent 的全局状态，优先显示正常、运行中、卡住、离线或错误
+- 大 agent：OpenClaw / Hermes 只显示已安装项；缺失安装不会被当作故障
+- 消耗：OpenClaw / Hermes 的大 agent 消耗和 Codex / Claude / Gemini 的小 agent 消耗分开显示
+- 本机状态：CPU、内存常驻摘要，系统详情页显示磁盘
+- 轮询：主状态、消耗详情和本机状态详情自动切换；大 agent 故障会暂停轮询
 
 ## 当前能力
 
 - Codex / Claude / Gemini 本地使用数据采集
-- OpenClaw 网关连接、状态检测和流式聊天
+- OpenClaw 网关连接、健康检测、活动状态和消耗汇总
+- Hermes 可选 provider 入口；未确认本地 contract 时按未安装处理
 - Push-to-Talk 语音输入，WhisperKit 本地转写
 - CPU / 内存 / 磁盘监控
 - OpenClaw 连接参数和每日预算设置持久化
-- 针对 800×480 小屏优化的赛博终端风 UI
+- 针对 5 寸 / 7 寸小屏优化的赛博终端风状态墙 UI
 
 ## 技术栈
 
@@ -33,12 +36,32 @@ MacJarvis 不走云端统计接口，直接读取本机数据：
 - Codex: `~/.codex/state_5.sqlite`
 - Claude: `~/.claude/plugins/claude-hud/.usage-cache.json`
 - Gemini: `~/.gemini/tmp/*/chats/session-*.json`
+- OpenClaw gateway usage: `openclaw gateway usage-cost --json`
 
 说明：
 
-- Codex 当前展示的是“今日总 token + 会话数”
+- Codex 小 agent 消耗不再使用 OpenClaw gateway 作为 fallback，避免和 OpenClaw 大 agent 消耗重复展示
 - Claude 当前展示的是 `claude-hud` 缓存里的 5 小时用量百分比和套餐名
 - Gemini 当前只统计今日 session 数，不显示真实 token
+
+## 状态墙行为
+
+大 agent 指 OpenClaw 和 Hermes。它们有安装状态、运行状态和消耗量。小 agent 指 Codex、Claude Code 和 Gemini；当前默认界面只展示它们的消耗，不推断运行健康。
+
+状态墙自动轮询：
+
+- 主状态页停留最长，用于常亮观察
+- 消耗详情页展示大 agent 和小 agent 的分组消耗
+- 本机状态详情页展示 CPU、内存和磁盘
+- 大 agent 卡住、离线或错误时显示故障中断页，直到恢复
+
+开发预览可以使用 fixture 启动：
+
+```bash
+open -na /path/to/MacJarvis.app --args -ApplePersistenceIgnoreState YES --fixture healthy-openclaw --page status
+```
+
+可用 fixture 包括 `healthy-openclaw`、`no-large-agents`、`stuck-openclaw`、`error-openclaw`、`mixed-openclaw-hermes` 和 `missing-small-token`。
 
 ## 构建
 
@@ -132,6 +155,7 @@ Settings 面板需要配置：
 - Gemini 暂时只显示 session 数，不显示 token
 - TTS 能力已经在代码里，但当前界面没有把“自动播报”完整接回新版 UI
 - 系统监控当前展示的是 CPU / 内存 / 磁盘，不是旧文档里写的 CPU / 温度
+- OpenClaw 聊天、嵌入式终端和 PTT 控件已从默认常亮界面降级为后续 debug/operator 模式范围
 
 ## 安装到其他电脑
 

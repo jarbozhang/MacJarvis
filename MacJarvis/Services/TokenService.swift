@@ -62,7 +62,7 @@ class TokenService {
 
             // API mode fetches
             let claudeAPIRecords = claudeMode == .api ? Self.fetchClaudeAPIUsage() : []
-            let codexAPIRecords = codexMode == .api ? (Self.fetchOpenClawGatewayUsage() ?? Self.fetchCodexAPIUsage()) : []
+            let codexAPIRecords = codexMode == .api ? Self.fetchCodexAPIUsage() : []
 
             await MainActor.run { [weak self] in
                 guard let self else { return }
@@ -391,7 +391,7 @@ class TokenService {
         return records
     }
 
-    private nonisolated static func findExecutable(named name: String, candidates: [String]) -> String? {
+    nonisolated static func findExecutable(named name: String, candidates: [String]) -> String? {
         let fm = FileManager.default
         for candidate in candidates where fm.isExecutableFile(atPath: candidate) {
             return candidate

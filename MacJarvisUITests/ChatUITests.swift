@@ -2,7 +2,8 @@ import XCTest
 
 final class ChatUITests: MacJarvisUITestBase {
 
-    func testSendTextMessage() {
+    func testSendTextMessage() throws {
+        throw XCTSkip("Operator chat is no longer part of the default status-wall surface.")
         let input = app.textFields["chatInput"]
         XCTAssertTrue(input.waitForExistence(timeout: 5))
 
@@ -24,7 +25,8 @@ final class ChatUITests: MacJarvisUITestBase {
         XCTAssertEqual(input.value as? String, "")
     }
 
-    func testSendButtonDisabledWhenEmpty() {
+    func testSendButtonDisabledWhenEmpty() throws {
+        throw XCTSkip("Operator chat is no longer part of the default status-wall surface.")
         let input = app.textFields["chatInput"]
         XCTAssertTrue(input.waitForExistence(timeout: 5))
 

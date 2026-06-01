@@ -20,7 +20,7 @@ struct HeaderView: View {
                     .foregroundColor(theme.primary)
                     .font(.system(size: 14 * scale))
                 GradientShiftText(
-                    text: "[SYS.MONITOR.v4.LND]",
+                    text: "[AGENT.STATUS.WALL]",
                     font: AppTheme.headlineFont(size: 10 * scale),
                     tracking: 3 * scale
                 )
@@ -50,6 +50,8 @@ struct HeaderView: View {
                         .font(.system(size: 12 * scale))
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Settings")
+                .accessibilityIdentifier("settingsButton")
             }
         }
         .padding(.horizontal, 12 * scale)

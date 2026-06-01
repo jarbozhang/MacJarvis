@@ -22,6 +22,8 @@ struct SettingsView: View {
                         .foregroundColor(theme.onSurfaceVariant)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Close settings")
+                .accessibilityIdentifier("closeButton")
             }
 
             sectionHeader("THEME")
@@ -111,6 +113,7 @@ struct SettingsView: View {
                         .foregroundColor(theme.onSurface)
                         .padding(6)
                         .background(theme.surfaceContainerLowest)
+                        .accessibilityIdentifier("hostInput")
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     Text("PORT").font(AppTheme.labelFont(size: 7)).foregroundColor(theme.onSurfaceVariant)
@@ -171,6 +174,7 @@ struct SettingsView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("reconnectButton")
 
         }
         .padding(16 * scale)
@@ -179,6 +183,7 @@ struct SettingsView: View {
         .background(theme.surfaceContainer)
         .contentShape(Rectangle())
         .overlay(Rectangle().stroke(theme.outlineVariant.opacity(0.3), lineWidth: 1))
+        .accessibilityIdentifier("settingsView")
     }
 
     private func sectionHeader(_ title: String) -> some View {

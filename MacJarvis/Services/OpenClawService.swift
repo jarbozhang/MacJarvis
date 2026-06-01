@@ -27,6 +27,9 @@ class OpenClawService {
     var mirroredSessionName: String?
     var mirrorStatusText: String = "session mirror idle"
     var isStreaming: Bool = false
+    var lastHealthCheckedAt: Date?
+    var lastActivityAt: Date?
+    var consecutiveHealthyReads: Int = 0
 
     private var baseURL: String = ""
     private var wsURL: String = ""
@@ -61,6 +64,9 @@ class OpenClawService {
                (200...299).contains(httpResponse.statusCode) {
                 status = .running
                 connectedAt = Date.now
+                lastHealthCheckedAt = Date.now
+                lastActivityAt = Date.now
+                consecutiveHealthyReads += 1
                 clawLog("Connected OK via /health")
                 startSessionMirror()
                 loadRecentSessionPreview(agent: agent)
@@ -69,11 +75,46 @@ class OpenClawService {
                 clawLog("Connect failed: HTTP \(code)")
                 status = .error
                 connectedAt = nil
+                consecutiveHealthyReads = 0
             }
         } catch {
             clawLog("Connect error: \(error.localizedDescription)")
             status = .stopped
             connectedAt = nil
+            consecutiveHealthyReads = 0
+        }
+    }
+
+    func refreshHealth() async {
+        guard !baseURL.isEmpty, let url = URL(string: "\(baseURL)/health") else { return }
+        var request = URLRequest(url: url, timeoutInterval: 6)
+        request.httpMethod = "GET"
+
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                status = .error
+                connectedAt = nil
+                consecutiveHealthyReads = 0
+                return
+            }
+
+            lastHealthCheckedAt = Date.now
+            if (200...299).contains(httpResponse.statusCode) {
+                if connectedAt == nil {
+                    connectedAt = Date.now
+                }
+                status = .running
+                consecutiveHealthyReads += 1
+            } else {
+                status = .error
+                connectedAt = nil
+                consecutiveHealthyReads = 0
+            }
+        } catch {
+            status = .stopped
+            connectedAt = nil
+            consecutiveHealthyReads = 0
         }
     }
 
@@ -86,10 +127,13 @@ class OpenClawService {
         sessionPreviewTask = nil
         status = .stopped
         connectedAt = nil
+        lastHealthCheckedAt = nil
+        consecutiveHealthyReads = 0
     }
 
     func sendMessage(_ text: String) {
         messages.append(ChatMessage(role: .user, content: text))
+        lastActivityAt = Date.now
         guard status == .running else { return }
 
         // Build conversation history (last 20 messages for context)
@@ -172,6 +216,7 @@ class OpenClawService {
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
         isStreaming = true
+        lastActivityAt = Date.now
         // Pre-create the assistant message placeholder
         let placeholderMsg = ChatMessage(role: .assistant, content: "")
         self.messages.append(placeholderMsg)
@@ -187,6 +232,9 @@ class OpenClawService {
                 if let idx = self.messages.firstIndex(where: { $0.id == placeholderId }) {
                     self.messages[idx].content = "[CONNECTION ERROR]"
                 }
+                status = .error
+                connectedAt = nil
+                consecutiveHealthyReads = 0
                 isStreaming = false
                 return
             }
@@ -205,6 +253,7 @@ class OpenClawService {
                       let content = delta["content"] as? String else { continue }
 
                 rawAssistantContent += content
+                lastActivityAt = Date.now
                 if let idx = self.messages.firstIndex(where: { $0.id == placeholderId }) {
                     self.messages[idx].content = OpenClawSessionFormatter.displayContent(from: rawAssistantContent)
                 }
@@ -218,6 +267,7 @@ class OpenClawService {
                 }
                 status = .error
                 connectedAt = nil
+                consecutiveHealthyReads = 0
             }
         }
 
@@ -287,8 +337,15 @@ class OpenClawService {
         mirroredSessionKey = key
         mirroredSessionName = session["displayName"] as? String
         mirroredMessages = rawMessages.compactMap(parseHistoryMessage)
+        if let newest = mirroredMessages.map(\.timestamp).max() {
+            lastActivityAt = newest
+        }
         let displayName = mirroredSessionName?.isEmpty == false ? mirroredSessionName! : key
         mirrorStatusText = "mirroring \(displayName)"
+    }
+
+    var hasActiveMirror: Bool {
+        mirroredSessionKey != nil && !mirroredMessages.isEmpty
     }
 
     private func selectActiveFeishuSession(from sessions: [[String: Any]]) -> [String: Any]? {
