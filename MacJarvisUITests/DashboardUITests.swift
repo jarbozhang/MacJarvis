@@ -61,4 +61,39 @@ final class DashboardUITests: MacJarvisUITestBase {
         XCTAssertTrue(app.staticTexts["MEMORY"].exists)
         XCTAssertTrue(app.staticTexts["DISK"].exists)
     }
+
+    // MARK: - Three-segment strip layout (logo + center detail + right metrics)
+
+    func testStripShowsOpenClawLogoAndCenterDetail() {
+        XCTAssertTrue(app.otherElements["largeAgentStatus-openclaw"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.otherElements["agentLogo-openclaw"].exists)
+        XCTAssertTrue(app.staticTexts["agentDetail-openclaw"].exists)
+        XCTAssertFalse(app.staticTexts["agentDetail-openclaw"].label.isEmpty)
+    }
+
+    func testStripRendersHermesLogoAndDetailInMixedFixture() {
+        relaunch(fixture: "mixed-openclaw-hermes")
+
+        XCTAssertTrue(app.otherElements["largeAgentStatus-hermes"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.otherElements["agentLogo-hermes"].exists)
+        XCTAssertTrue(app.staticTexts["agentDetail-hermes"].exists)
+        XCTAssertTrue(app.otherElements["agentLogo-openclaw"].exists)
+        XCTAssertTrue(app.staticTexts["agentDetail-openclaw"].exists)
+    }
+
+    func testStripDetailRemainsVisibleOnStuckAgent() {
+        relaunch(fixture: "stuck-openclaw")
+
+        XCTAssertTrue(app.otherElements["largeAgentStatus-openclaw"].waitForExistence(timeout: 5))
+        let detail = app.staticTexts["agentDetail-openclaw"]
+        XCTAssertTrue(detail.exists)
+        XCTAssertFalse(detail.label.isEmpty)
+    }
+
+    func testStripAccessibilityLabelMentionsStatusLineAndSignal() {
+        XCTAssertTrue(app.otherElements["largeAgentStatus-openclaw"].waitForExistence(timeout: 5))
+        let label = app.otherElements["largeAgentStatus-openclaw"].label
+        XCTAssertTrue(label.contains("OpenClaw"), "label was: \(label)")
+        XCTAssertTrue(label.lowercased().contains("signal"), "label was: \(label)")
+    }
 }
