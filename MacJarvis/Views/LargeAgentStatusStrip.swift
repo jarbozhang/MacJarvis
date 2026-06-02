@@ -3,7 +3,6 @@ import SwiftUI
 struct LargeAgentStatusStrip: View {
     @Environment(\.theme) private var theme
     @Environment(\.scaleFactor) private var scale
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let snapshot: LargeAgentSnapshot
     var now: Date = Date()
@@ -11,18 +10,20 @@ struct LargeAgentStatusStrip: View {
     var body: some View {
         let color = snapshot.severity.color(theme: theme)
         let isPulsing = snapshot.status == .running
+        let detailDisplayText = Self.detailDisplayText(for: snapshot)
 
         HStack(spacing: 10 * scale) {
             AgentLogoView(kind: snapshot.kind, color: color)
                 .frame(width: 32 * scale, height: 32 * scale)
                 .neonGlow(color: color, radius: 6 * scale)
-                .accessibilityHidden(true)
                 .accessibilityIdentifier("agentLogo-\(snapshot.kind.rawValue)")
+                .accessibilityLabel("\(snapshot.displayName) logo")
 
             Rectangle()
                 .fill(color)
                 .frame(width: 4 * scale)
                 .neonGlow(color: color, radius: 8 * scale)
+                .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4 * scale) {
                 Text(snapshot.displayName.uppercased())
@@ -40,23 +41,23 @@ struct LargeAgentStatusStrip: View {
                         Rectangle().stroke(color.opacity(0.6), lineWidth: 1)
                     }
             }
+            .layoutPriority(1)
 
             Spacer(minLength: 8 * scale)
 
             HStack(spacing: 8 * scale) {
-                PulseDot(color: color, isPulsing: isPulsing, reduceMotion: reduceMotion)
+                PulseDot(color: color, isPulsing: isPulsing)
                     .frame(width: 8 * scale, height: 8 * scale)
                     .accessibilityHidden(true)
-                    .accessibilityIdentifier("agentPulse-\(snapshot.kind.rawValue)")
 
-                Text(snapshot.statusLine.uppercased())
+                Text(detailDisplayText)
                     .font(AppTheme.labelFont(size: 14 * scale))
-                    .tracking(1 * scale)
                     .foregroundColor(theme.onSurface)
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .minimumScaleFactor(0.6)
                     .accessibilityIdentifier("agentDetail-\(snapshot.kind.rawValue)")
+                    .accessibilityLabel(snapshot.statusLine)
             }
             .layoutPriority(1)
 
@@ -86,9 +87,20 @@ struct LargeAgentStatusStrip: View {
         .overlay(alignment: .bottom) {
             Rectangle().fill(color.opacity(0.25)).frame(height: 1)
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("\(snapshot.displayName), \(snapshot.status.accessibilityPhrase), \(snapshot.statusLine), signal age \(snapshot.ageText(now: now))")
         .accessibilityIdentifier("largeAgentStatus-\(snapshot.kind.rawValue)")
+    }
+
+    /// Center text uppercases short detail strings (1-3 words) so they read as
+    /// pixel-style status chips; leaves longer fallback sentences in their original
+    /// case so VoiceOver and visual readers don't get shouted at.
+    static func detailDisplayText(for snapshot: LargeAgentSnapshot) -> String {
+        let raw = snapshot.statusLine
+        if let detail = snapshot.detail, !detail.isEmpty, detail.split(separator: " ").count <= 3 {
+            return detail.uppercased()
+        }
+        return raw
     }
 }
 
@@ -99,9 +111,16 @@ private struct AgentLogoView: View {
     var body: some View {
         switch kind {
         case .openClaw:
-            LobsterShape(bodyColor: color, antennaColor: color, eyeHighlightColor: color)
+            LobsterShape(
+                bodyColor: color,
+                antennaColor: color.opacity(0.7),
+                eyeHighlightColor: Color(hex: 0x00E5CC)
+            )
         case .hermes:
-            HermesWingShape(bodyColor: color, accentColor: color)
+            HermesWingShape(
+                bodyColor: color,
+                accentColor: Color(hex: 0x00E5CC)
+            )
         }
     }
 }
@@ -109,20 +128,19 @@ private struct AgentLogoView: View {
 private struct PulseDot: View {
     let color: Color
     let isPulsing: Bool
-    let reduceMotion: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        if isPulsing && !reduceMotion {
-            Circle()
-                .fill(color)
-                .phaseAnimator([false, true]) { view, phase in
-                    view.opacity(phase ? 1.0 : 0.4)
-                } animation: { _ in
-                    .easeInOut(duration: 1.2)
-                }
-        } else {
-            Circle()
-                .fill(color)
-        }
+        Circle()
+            .fill(color)
+            .phaseAnimator([false, true], trigger: shouldAnimate) { view, phase in
+                view.opacity(shouldAnimate && phase ? 0.4 : 1.0)
+            } animation: { _ in
+                shouldAnimate ? .easeInOut(duration: 1.2) : .linear(duration: 0)
+            }
+    }
+
+    private var shouldAnimate: Bool {
+        isPulsing && !reduceMotion
     }
 }
