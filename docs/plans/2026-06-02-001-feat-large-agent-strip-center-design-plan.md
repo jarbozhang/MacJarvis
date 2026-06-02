@@ -1,7 +1,7 @@
 ---
 title: "feat: Fill OpenClaw/Hermes status strip center with logo + detail"
 type: feat
-status: active
+status: completed
 date: 2026-06-02
 deepened: 2026-06-02
 ---
