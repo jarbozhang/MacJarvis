@@ -38,6 +38,30 @@ class DisplayManager {
         width <= fullscreenMaxWidth
     }
 
+    /// Whether the given screen name represents a Mac's built-in display.
+    nonisolated static func isBuiltIn(name: String) -> Bool {
+        name.contains("Built-in") || name.contains("内建")
+    }
+
+    /// Pick the dashboard target from a list of screens.
+    /// Filters out built-in displays (Mac mini has none), then prefers the
+    /// smallest external — a Mac mini wired to both 2560×1440 and 800×480
+    /// must land on the 800×480 dashboard, not on the main desktop.
+    /// Returns the index in the input array, or nil if no external is present.
+    nonisolated static func selectTargetScreenIndex(
+        from screens: [(name: String, width: CGFloat)]
+    ) -> Int? {
+        let externals = screens.enumerated().filter { !isBuiltIn(name: $0.element.name) }
+        guard !externals.isEmpty else { return nil }
+
+        return externals.min { lhs, rhs in
+            let lSmall = shouldUseFullscreen(forWidth: lhs.element.width)
+            let rSmall = shouldUseFullscreen(forWidth: rhs.element.width)
+            if lSmall != rSmall { return lSmall }
+            return lhs.element.width < rhs.element.width
+        }?.offset
+    }
+
     func startMonitoring() {
         configureWindowMonitoring()
         checkScreens()
@@ -133,11 +157,8 @@ class DisplayManager {
     }
 
     private func checkScreens(forceWindowedCorrection: Bool = false) {
-        // Prefer external screen (non-built-in)
-        let externalScreen = NSScreen.screens.first { screen in
-            let name = screen.localizedName
-            return !name.contains("Built-in") && !name.contains("内建")
-        }
+        let candidates = NSScreen.screens.map { (name: $0.localizedName, width: $0.frame.width) }
+        let externalScreen = Self.selectTargetScreenIndex(from: candidates).map { NSScreen.screens[$0] }
 
         if let external = externalScreen {
             targetScreen = external
