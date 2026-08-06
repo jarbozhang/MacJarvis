@@ -1,0 +1,51 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build Release
+        run: |
+          xcodebuild -project MacJarvis.xcodeproj \
+            -scheme MacJarvis \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY=- \
+            build
+
+      - name: Package dmg
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          [[ "$GITHUB_REF_TYPE" == "tag" ]] || VERSION=$(git rev-parse --short HEAD)
+          STAGE=$(mktemp -d)/MacJarvis
+          mkdir -p "$STAGE"
+          cp -R build/Build/Products/Release/MacJarvis.app "$STAGE/"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create -volname "MacJarvis" -srcfolder "$STAGE" -ov -format UDZO "MacJarvis-${VERSION}.dmg"
+          echo "DMG=MacJarvis-${VERSION}.dmg" >> "$GITHUB_ENV"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MacJarvis-dmg
+          path: ${{ env.DMG }}
+
+      - name: Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" "$DMG" --title "MacJarvis $GITHUB_REF_NAME" --generate-notes
